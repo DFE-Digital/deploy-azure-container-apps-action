@@ -53,10 +53,13 @@ jobs:
       branch: ${{ steps.var.outputs.branch }}
       checked-out-sha: ${{ steps.var.outputs.checked-out-sha }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
       - id: var
         run: |
-          GIT_REF=${{ github.ref }}
-          GIT_BRANCH=${GIT_REF##*/}
+          GIT_BRANCH=${{ github.ref_name }}
           INPUT_ENVIRONMENT=${{ inputs.environment }}
           ENVIRONMENT=${INPUT_ENVIRONMENT:-"development"}
           CHECKED_OUT_SHA="$(git log -1 '--format=format:%H')"
