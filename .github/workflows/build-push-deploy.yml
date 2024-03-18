@@ -115,7 +115,7 @@ jobs:
           creds: ${{ secrets.azure-aca-credentials }}
 
       - name: Update Azure Container Apps Revision
-        uses: azure/CLI@v1
+        uses: azure/CLI@v2
         id: azure
         with:
           azcliversion: 2.53.1
