@@ -40,10 +40,6 @@ on:
       azure-aca-resource-group:
         required: true
 
-concurrency:
-  group: ${{ github.ref }}-${{ inputs.environment }}
-  cancel-in-progress: true
-
 jobs:
   set-env:
     name: Set environment variables
