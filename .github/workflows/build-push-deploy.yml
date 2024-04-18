@@ -92,6 +92,7 @@ jobs:
           build-args: |
             ${{ inputs.docker-build-args }}
             COMMIT_SHA=${{ needs.set-env.outputs.checked-out-sha }}
+          secrets: github_token=${{ secrets.GITHUB_TOKEN }}
           tags: |
             ${{ secrets.azure-acr-url }}/${{ inputs.docker-image-name }}:${{ needs.set-env.outputs.branch }}
             ${{ secrets.azure-acr-url }}/${{ inputs.docker-image-name }}:sha-${{ needs.set-env.outputs.checked-out-sha }}
