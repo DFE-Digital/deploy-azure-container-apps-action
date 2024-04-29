@@ -21,6 +21,10 @@ on:
         description: 'Specify additional arguments to pass to your Docker image during build time'
         required: false
         type: string
+      docker-tag-prefix:
+        description: 'Specify a prefix that you want to add to all of the published image tags'
+        required: false
+        type: string
       environment:
         description: 'Specify the environment you are deploying to'
         default: 'development'
@@ -95,9 +99,9 @@ jobs:
             COMMIT_SHA=${{ needs.set-env.outputs.checked-out-sha }}
           secrets: github_token=${{ secrets.GITHUB_TOKEN }}
           tags: |
-            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ needs.set-env.outputs.branch }}
-            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:sha-${{ needs.set-env.outputs.checked-out-sha }}
-            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:latest
+            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}${{ needs.set-env.outputs.branch }}
+            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}
+            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}latest
           push: true
           cache-from: type=gha
 
