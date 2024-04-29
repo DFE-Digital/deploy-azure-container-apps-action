@@ -122,9 +122,9 @@ jobs:
           azcliversion: 2.40.0
           inlineScript: |
             TAGS=(
-              ${{ needs.set-env.outputs.branch }}
-              sha-${{ needs.set-env.outputs.checked-out-sha }}
-              latest
+              ${{ inputs.docker-tag-prefix }}${{ needs.set-env.outputs.branch }}
+              ${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}
+              ${{ inputs.docker-tag-prefix }}latest
             )
             az config set extension.use_dynamic_install=yes_without_prompt
             for tag in "${TAGS[@]}"
@@ -159,5 +159,5 @@ jobs:
             az containerapp update \
               --name ${{ secrets.azure-aca-name }} \
               --resource-group ${{ secrets.azure-aca-resource-group }} \
-              --image ${{ secrets.azure-acr-name }}.azurecr.io/${{ inputs.docker-image-name }}:sha-${{ needs.set-env.outputs.checked-out-sha }} \
+              --image ${{ secrets.azure-acr-name }}.azurecr.io/${{ inputs.docker-image-name }}:${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }} \
               --output none
