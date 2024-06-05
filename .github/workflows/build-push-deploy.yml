@@ -30,6 +30,11 @@ on:
         default: 'development'
         required: false
         type: string
+      annotate-release:
+        description: 'Annotate the release in App Insights'
+        default: false
+        required: false
+        type: boolean
     secrets:
       azure-acr-credentials:
         required: true
@@ -161,3 +166,18 @@ jobs:
               --resource-group ${{ secrets.azure-aca-resource-group }} \
               --image ${{ secrets.azure-acr-name }}.azurecr.io/${{ inputs.docker-image-name }}:${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }} \
               --output none
+
+      - name: Create release annotation
+        if: inputs.annotate-release
+        uses: azure/CLI@v2
+        with:
+          azcliversion: 2.53.1
+          inlineScript: |
+            APPINSIGHTS_ID=$(az resource show -g ${{ secrets.azure-aca-resource-group }}-n ${{ secrets.azure-aca-resource-group }}-insights --resource-type "microsoft.insights/components" --query id -o tsv)
+            UUID=$(cat /proc/sys/kernel/random/uuid)
+            sha=${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}
+            triggerBy=${{ github.actor }}
+            eventTime=`date '+%Y-%m-%dT%H:%M:%S' -u`
+            category="Deployment"
+            data='{ "Id": "'$UUID'", "AnnotationName": "'$sha'", "EventTime":"'$eventTime'", "Category":"'$category'", "Properties":"{ \"ReleaseName\":\"'$sha'\", \"TriggeredBy\": \"'$triggerBy'\" }"}'
+            az rest --method put --uri "$APPINSIGHTS_ID/Annotations?api-version=2015-05-01" --body "$data" -o none
