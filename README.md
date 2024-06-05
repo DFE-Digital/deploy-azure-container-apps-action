@@ -14,6 +14,7 @@ jobs:
       docker-build-context: '.'
       docker-build-args: 'ENV=development'
       environment: development
+      annotate-release: true # defaults to false
     secrets:
       azure-acr-client-id: ${{ secrets.AZURE_ACR_CLIENTID }}
       azure-acr-secret: ${{ secrets.AZURE_ACR_SECRET }}
