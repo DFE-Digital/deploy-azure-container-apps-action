@@ -180,7 +180,7 @@ jobs:
             until [[
               $HEALTH == 'Healthy'
               && $STATE == 'Provisioned'
-            ]];
+            ]]
             do
               REVISION_DETAILS=$(az containerapp revision show \
                 --revision "$NEW_REVISION" \
@@ -193,7 +193,10 @@ jobs:
 
               echo "[i] Status: $STATE   Health: $HEALTH   State: $STATUS"
 
-              if [[ $HEALTH == 'Unhealthy' ]] && [[ $STATE == 'Failed' ]];
+              if [[
+                $HEALTH == 'Unhealthy'
+                && $STATE == 'Failed'
+              ]]
               then
                 echo "[!] Container App deployment failed!"
                 echo "$ERROR_MSG" >&2
@@ -201,7 +204,7 @@ jobs:
               fi
 
               # Safety condition to avoid unnecessary execution time
-              if [[ $SECONDS -gt $TIMEOUT ]];
+              if [[ $SECONDS -gt $TIMEOUT ]]
               then
                 echo "[!] Container App failed to reach a steady state after 60 seconds" >&2
                 exit 1
