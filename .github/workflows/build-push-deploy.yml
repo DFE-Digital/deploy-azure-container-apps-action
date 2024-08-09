@@ -161,11 +161,58 @@ jobs:
           azcliversion: 2.63.0
           inlineScript: |
             az config set extension.use_dynamic_install=yes_without_prompt
-            az containerapp update \
+            UPDATE=$(az containerapp update \
               --name ${{ secrets.azure-aca-name }} \
               --resource-group ${{ secrets.azure-aca-resource-group }} \
               --image ${{ secrets.azure-acr-name }}.azurecr.io/${{ inputs.docker-image-name }}:${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }} \
-              --output none
+              --only-show-errors)
+
+            NEW_REVISION=$(echo "$UPDATE" | jq -r '.properties.latestRevisionName')
+            NEW_TAG=$(echo "$UPDATE" | jq -r '.properties.template.containers[0].image')
+
+            echo "[i] Deploying $NEW_REVISION with image tag $NEW_TAG..."
+
+            HEALTH=""
+            STATE=""
+
+            TIMEOUT=$((SECONDS+60))
+
+            until [[
+              $HEALTH == 'Healthy'
+              && $STATE == 'Provisioned'
+            ]];
+            do
+              REVISION_DETAILS=$(az containerapp revision show \
+                --revision "$NEW_REVISION" \
+                --resource-group "${{ secrets.azure-aca-resource-group }}")
+
+              STATE=$(echo "$REVISION_DETAILS" | jq -r '.properties.provisioningState');
+              HEALTH=$(echo "$REVISION_DETAILS" | jq -r '.properties.healthState');
+              STATUS=$(echo "$REVISION_DETAILS" | jq -r '.properties.runningState');
+              ERROR_MSG=$(echo "$REVISION_DETAILS" | jq -r '.properties.provisioningError')
+
+              echo "[i] Status: $STATE   Health: $HEALTH   State: $STATUS"
+
+              if [[ $HEALTH == 'Unhealthy' ]] && [[ $STATE == 'Failed' ]];
+              then
+                echo "[!] Container App deployment failed!"
+                echo "$ERROR_MSG" >&2
+                exit 1
+              fi
+
+              # Safety condition to avoid unnecessary execution time
+              if [[ $SECONDS -gt $TIMEOUT ]];
+              then
+                echo "[!] Container App failed to reach a steady state after 60 seconds" >&2
+                exit 1
+              fi
+
+              sleep 2
+            done
+
+            # Final output to evidence the state
+            echo "Deployment completed successfully!"
+            exit 0
 
       - name: Create release annotation
         if: inputs.annotate-release
