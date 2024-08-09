@@ -162,9 +162,9 @@ jobs:
           inlineScript: |
             az config set extension.use_dynamic_install=yes_without_prompt
             UPDATE=$(az containerapp update \
-              --name ${{ secrets.azure-aca-name }} \
-              --resource-group ${{ secrets.azure-aca-resource-group }} \
-              --image ${{ secrets.azure-acr-name }}.azurecr.io/${{ inputs.docker-image-name }}:${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }} \
+              --name "${{ secrets.azure-aca-name }}" \
+              --resource-group "${{ secrets.azure-aca-resource-group }}" \
+              --image "${{ secrets.azure-acr-name }}.azurecr.io/${{ inputs.docker-image-name }}:${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}" \
               --only-show-errors)
 
             NEW_REVISION=$(echo "$UPDATE" | jq -r '.properties.latestRevisionName')
