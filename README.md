@@ -7,7 +7,7 @@ This GitHub Workflow will build a Dockerfile, push it to an Azure Container Regi
 ```yml
 jobs:
   build-push-deploy:
-    uses: DFE-Digital/deploy-azure-container-apps-action/.github/workflows/build-push-deploy.yml@main
+    uses: DFE-Digital/deploy-azure-container-apps-action/.github/workflows/build-push-deploy.yml@v2.4.0
     with:
       docker-image-name: 'my-app'
       docker-build-file-name: 'Dockerfile'
