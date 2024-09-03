@@ -160,7 +160,7 @@ jobs:
         with:
           azcliversion: 2.64.0
           inlineScript: |
-            yum update && yum install jq -y
+            yum update -y && yum install jq -y
             az config set extension.use_dynamic_install=yes_without_prompt
             UPDATE=$(az containerapp update \
               --name "${{ secrets.azure-aca-name }}" \
