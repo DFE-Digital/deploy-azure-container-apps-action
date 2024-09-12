@@ -29,7 +29,7 @@ on:
         description: 'Specify a prefix that you want to add to all of the published image tags'
         required: false
         type: string
-      import_without_deploy:
+      import-without-deploy:
         description: 'Build and import the image into ACR but do not update the Container App revision'
         required: false
         default: false
@@ -155,7 +155,7 @@ jobs:
 
   deploy-image:
     name: Deploy '${{ needs.set-env.outputs.branch }}' to ${{ needs.set-env.outputs.environment }}
-    if: ${{ inputs.import_without_deploy }} == false
+    if: ${{ inputs.import-without-deploy == false }}
     needs: [ acr-import, set-env ]
     runs-on: ubuntu-22.04
     environment: ${{ needs.set-env.outputs.environment }}
