@@ -21,10 +21,19 @@ on:
         description: 'Specify additional arguments to pass to your Docker image during build time'
         required: false
         type: string
+      docker-build-target:
+        description: 'Specify a target layer in the Dockerfile you want to build'
+        required: false
+        type: string
       docker-tag-prefix:
         description: 'Specify a prefix that you want to add to all of the published image tags'
         required: false
         type: string
+      import_without_deploy:
+        description: 'Build and import the image into ACR but do not update the Container App revision'
+        required: false
+        default: false
+        type: boolean
       environment:
         description: 'Specify the environment you are deploying to'
         default: 'development'
@@ -99,6 +108,7 @@ jobs:
         with:
           context: ${{ inputs.docker-build-context }}
           file: ${{ inputs.docker-build-file-name }}
+          target: ${{ inputs.docker-build-target }}
           build-args: |
             ${{ inputs.docker-build-args }}
             COMMIT_SHA=${{ needs.set-env.outputs.checked-out-sha }}
@@ -145,6 +155,7 @@ jobs:
 
   deploy-image:
     name: Deploy '${{ needs.set-env.outputs.branch }}' to ${{ needs.set-env.outputs.environment }}
+    if: ${{ inputs.import_without_deploy }} == false
     needs: [ acr-import, set-env ]
     runs-on: ubuntu-22.04
     environment: ${{ needs.set-env.outputs.environment }}
