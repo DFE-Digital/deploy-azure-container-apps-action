@@ -1,0 +1,170 @@
+name: Update Container App revision
+
+on:
+  workflow_call:
+    inputs:
+      docker-tag-prefix:
+        description: 'Prefix that you want to add to all of the published image tags'
+        required: false
+        type: string
+      annotate-release:
+        description: 'Annotate the release in App Insights?'
+        default: false
+        required: false
+        type: boolean
+      app-insights-name:
+        description: 'Name of App Insights resource'
+        required: false
+        type: string
+      az-cli-version:
+        description: 'Version of Azure CLI to use'
+        required: false
+        type: string
+        default: '2.68.0'
+      environment:
+        description: 'Environment you are deploying to'
+        default: 'development'
+        required: false
+        type: string
+
+    secrets:
+      azure-tenant-id:
+        required: false
+      azure-subscription-id:
+        required: false
+      azure-aca-client-id:
+        required: false
+      azure-aca-credentials:
+        required: false
+      azure-aca-name:
+        required: true
+      azure-aca-resource-group:
+        required: true
+
+jobs:
+  set-env:
+    name: Set environment variables
+    runs-on: ubuntu-24.04
+    outputs:
+      environment: ${{ steps.var.outputs.environment }}
+      checked-out-sha: ${{ steps.var.outputs.checked-out-sha }}
+      app-insights-name: ${{ steps.var.outputs.app-insights-name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - id: var
+        run: |
+          ENVIRONMENT=${{ inputs.environment }}
+          CHECKED_OUT_SHA="$(git log -1 '--format=format:%H')"
+          INPUT_APP_INSIGHTS_NAME=${{ inputs.app-insights-name }}
+          APP_INSIGHTS_NAME=${INPUT_APP_INSIGHTS_NAME:-"${{ secrets.azure-aca-resource-group }}-insights"}
+          echo "environment=${ENVIRONMENT,,}" >> $GITHUB_OUTPUT
+          echo "checked-out-sha=${CHECKED_OUT_SHA}" >> $GITHUB_OUTPUT
+          echo "app-insights-name=${APP_INSIGHTS_NAME}" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: [ set-env ]
+    runs-on: ubuntu-24.04
+    environment: ${{ needs.set-env.outputs.environment }}
+    steps:
+      - name: Login with OIDC
+        env:
+          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
+          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
+          AZURE_ACA_CLIENT_ID: ${{ secrets.azure-aca-client-id || '' }}
+        if: env.AZURE_TENANT_ID && env.AZURE_SUBSCRIPTION && env.AZURE_ACA_CLIENT_ID
+        uses: azure/login@v2
+        with:
+          tenant-id: ${{ secrets.azure-tenant-id }}
+          subscription-id: ${{ secrets.azure-subscription-id }}
+          client-id: ${{ secrets.azure-aca-client-id }}
+
+      - name: Login with Client Secret
+        env:
+          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
+          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
+          AZURE_ACA_CLIENT_ID: ${{ secrets.azure-aca-client-id || '' }}
+        if: ${{ !(env.AZURE_TENANT_ID && env.AZURE_SUBSCRIPTION && env.AZURE_ACA_CLIENT_ID) }}
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.azure-aca-credentials }}
+
+      - name: Update Container revision
+        uses: azure/CLI@v2
+        id: azure
+        with:
+          azcliversion: ${{ inputs.az-cli-version }}
+          inlineScript: |
+            az config set extension.use_dynamic_install=yes_without_prompt
+            UPDATE=$(az containerapp update \
+              --name "${{ secrets.azure-aca-name }}" \
+              --resource-group "${{ secrets.azure-aca-resource-group }}" \
+              --image "${{ secrets.azure-acr-name }}.azurecr.io/${{ inputs.docker-image-name }}:${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}" \
+              --only-show-errors)
+
+            NEW_REVISION=$(echo "$UPDATE" | jq -r '.properties.latestRevisionName')
+            NEW_TAG=$(echo "$UPDATE" | jq -r '.properties.template.containers[0].image')
+
+            echo "[i] Deploying $NEW_REVISION with image tag $NEW_TAG..."
+
+            HEALTH=""
+            STATE=""
+
+            TIMEOUT=$((SECONDS+60))
+
+            until [[
+              $HEALTH == 'Healthy'
+              && $STATE == 'Provisioned'
+            ]]
+            do
+              REVISION_DETAILS=$(az containerapp revision show \
+                --revision "$NEW_REVISION" \
+                --resource-group "${{ secrets.azure-aca-resource-group }}")
+
+              STATE=$(echo "$REVISION_DETAILS" | jq -r '.properties.provisioningState');
+              HEALTH=$(echo "$REVISION_DETAILS" | jq -r '.properties.healthState');
+              STATUS=$(echo "$REVISION_DETAILS" | jq -r '.properties.runningState');
+              ERROR_MSG=$(echo "$REVISION_DETAILS" | jq -r '.properties.provisioningError')
+
+              echo "[i] Status: $STATE   Health: $HEALTH   State: $STATUS"
+
+              if [[
+                $HEALTH == 'Unhealthy'
+                && $STATE == 'Failed'
+              ]]
+              then
+                echo "[!] Container App deployment failed!"
+                echo "$ERROR_MSG" >&2
+                exit 1
+              fi
+
+              # Safety condition to avoid unnecessary execution time
+              if [[ $SECONDS -gt $TIMEOUT ]]
+              then
+                echo "[!] Container App failed to reach a steady state after 60 seconds" >&2
+                exit 1
+              fi
+
+              sleep 2
+            done
+
+            # Final output to evidence the state
+            echo "Deployment completed successfully!"
+            exit 0
+
+      - name: Create release annotation
+        if: inputs.annotate-release
+        uses: azure/CLI@v2
+        with:
+          azcliversion: ${{ inputs.az-cli-version }}
+          inlineScript: |
+            APPINSIGHTS_ID=$(az resource show -g ${{ secrets.azure-aca-resource-group }} -n ${{ needs.set-env.outputs.checked-out-sha }} --resource-type "microsoft.insights/components" --query id -o tsv)
+            UUID=$(cat /proc/sys/kernel/random/uuid)
+            sha=${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}
+            triggerBy=${{ github.actor }}
+            eventTime=`date '+%Y-%m-%dT%H:%M:%S' -u`
+            category="Deployment"
+            data='{ "Id": "'$UUID'", "AnnotationName": "'$sha'", "EventTime":"'$eventTime'", "Category":"'$category'", "Properties":"{ \"ReleaseName\":\"'$sha'\", \"TriggeredBy\": \"'$triggerBy'\" }"}'
+            az rest --method put --uri "$APPINSIGHTS_ID/Annotations?api-version=2015-05-01" --body "$data" -o none

@@ -1,0 +1,98 @@
+name: Build and push to GHCR
+
+on:
+  workflow_call:
+    inputs:
+      docker-image-name:
+        description: 'Name of your Docker image'
+        required: true
+        type: string
+      docker-build-file-name:
+        description: 'Filename of a Dockerfile'
+        default: 'Dockerfile'
+        required: false
+        type: string
+      docker-build-context:
+        description: 'Relative or absolute path to a local directory containing a Dockerfile'
+        default: '.'
+        required: false
+        type: string
+      docker-build-args:
+        description: 'Additional arguments to pass to your Docker image during build time'
+        required: false
+        type: string
+      docker-build-target:
+        description: 'Target layer in the Dockerfile you want to build'
+        required: false
+        type: string
+      docker-tag-prefix:
+        description: 'Prefix that you want to add to all of the published image tags'
+        required: false
+        type: string
+      environment:
+        description: 'Specify the environment you are deploying to'
+        default: 'development'
+        required: false
+        type: string
+
+jobs:
+  set-env:
+    name: Set environment variables
+    runs-on: ubuntu-24.04
+    outputs:
+      environment: ${{ steps.var.outputs.environment }}
+      branch: ${{ steps.var.outputs.branch }}
+      checked-out-sha: ${{ steps.var.outputs.checked-out-sha }}
+      github_repository_lc: ${{ steps.var.outputs.github_repository_lc }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - id: var
+        run: |
+          GIT_REF=${{ github.ref_name }}
+          GIT_BRANCH=${GIT_REF//\//-}
+          CHECKED_OUT_SHA="$(git log -1 '--format=format:%H')"
+          GITHUB_REPOSITORY=${{ github.repository }}
+          ENVIRONMENT=${{ inputs.environment }}
+          echo "environment=${ENVIRONMENT,,}" >> $GITHUB_OUTPUT
+          echo "branch=$GIT_BRANCH" >> $GITHUB_OUTPUT
+          echo "checked-out-sha=${CHECKED_OUT_SHA}" >> $GITHUB_OUTPUT
+          echo "github_repository_lc=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
+
+  build:
+    needs: set-env
+    runs-on: ubuntu-24.04
+    environment: ${{ needs.set-env.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: GitHub Container Registry login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.docker-build-context }}
+          file: ${{ inputs.docker-build-file-name }}
+          target: ${{ inputs.docker-build-target }}
+          build-args: |
+            ${{ inputs.docker-build-args }}
+            COMMIT_SHA=${{ needs.set-env.outputs.checked-out-sha }}
+          secrets: github_token=${{ secrets.GITHUB_TOKEN }}
+          tags: |
+            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}${{ needs.set-env.outputs.branch }}
+            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}
+            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}latest
+          push: true
+          cache-from: type=gha
