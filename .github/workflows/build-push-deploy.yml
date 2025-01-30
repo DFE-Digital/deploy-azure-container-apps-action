@@ -159,7 +159,7 @@ jobs:
       - name: Run ACR Import
         uses: azure/cli@v2
         with:
-          azcliversion: 2.67.0
+          azcliversion: 2.68.0
           inlineScript: |
             TAGS=(
               ${{ inputs.docker-tag-prefix }}${{ needs.set-env.outputs.branch }}
@@ -211,7 +211,7 @@ jobs:
         uses: azure/CLI@v2
         id: azure
         with:
-          azcliversion: 2.67.0
+          azcliversion: 2.68.0
           inlineScript: |
             az config set extension.use_dynamic_install=yes_without_prompt
             UPDATE=$(az containerapp update \
@@ -274,7 +274,7 @@ jobs:
         if: inputs.annotate-release
         uses: azure/CLI@v2
         with:
-          azcliversion: 2.67.0
+          azcliversion: 2.68.0
           inlineScript: |
             APPINSIGHTS_ID=$(az resource show -g ${{ secrets.azure-aca-resource-group }} -n ${{ secrets.azure-aca-resource-group }}-insights --resource-type "microsoft.insights/components" --query id -o tsv)
             UUID=$(cat /proc/sys/kernel/random/uuid)
