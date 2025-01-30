@@ -26,20 +26,6 @@ on:
         required: false
         type: string
 
-    secrets:
-      azure-tenant-id:
-        required: false
-      azure-subscription-id:
-        required: false
-      azure-aca-client-id:
-        required: false
-      azure-aca-credentials:
-        required: false
-      azure-aca-name:
-        required: true
-      azure-aca-resource-group:
-        required: true
-
 env:
   AZURE_CLI_VERSION: 2.68.0
 
