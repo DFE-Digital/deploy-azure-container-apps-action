@@ -77,7 +77,6 @@ jobs:
       docker-build-args: ${{ inputs.docker-build-args }}
       docker-build-target: ${{ inputs.docker-build-target }}
       docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
-    secrets: inherit
 
   import:
     name: Import
