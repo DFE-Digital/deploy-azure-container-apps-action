@@ -7,6 +7,10 @@ on:
         description: 'Prefix that you want to add to all of the published image tags'
         required: false
         type: string
+      docker-image-name:
+        description: 'Name of your Docker image'
+        required: true
+        type: string
       annotate-release:
         description: 'Annotate the release in App Insights?'
         default: false
