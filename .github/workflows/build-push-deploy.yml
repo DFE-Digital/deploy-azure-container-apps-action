@@ -83,7 +83,6 @@ jobs:
     uses: ./.github/workflows/import.yml
     with:
       environment: ${{ inputs.environment }}
-      az-cli-version: ${{ env.AZURE_CLI_VERSION }}
       docker-image-name: ${{ inputs.docker-image-name }}
       docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
     secrets: inherit
@@ -94,7 +93,6 @@ jobs:
     if: ${{ inputs.import-without-deploy == false }}
     with:
       environment: ${{ inputs.environment }}
-      az-cli-version: ${{ env.AZURE_CLI_VERSION }}
       docker-image-name: ${{ inputs.docker-image-name }}
       docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
     secrets: inherit
