@@ -37,7 +37,6 @@ jobs:
     name: Set environment variables
     runs-on: ubuntu-24.04
     outputs:
-      environment: ${{ steps.var.outputs.environment }}
       branch: ${{ steps.var.outputs.branch }}
       checked-out-sha: ${{ steps.var.outputs.checked-out-sha }}
       github_repository_lc: ${{ steps.var.outputs.github_repository_lc }}
@@ -50,10 +49,8 @@ jobs:
         run: |
           GIT_REF=${{ github.ref_name }}
           GIT_BRANCH=${GIT_REF//\//-}
-          ENVIRONMENT=${{ inputs.environment }}
           CHECKED_OUT_SHA="$(git log -1 '--format=format:%H')"
           GITHUB_REPOSITORY=${{ github.repository }}
-          echo "environment=${ENVIRONMENT,,}" >> $GITHUB_OUTPUT
           echo "branch=$GIT_BRANCH" >> $GITHUB_OUTPUT
           echo "checked-out-sha=${CHECKED_OUT_SHA}" >> $GITHUB_OUTPUT
           echo "github_repository_lc=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
@@ -61,7 +58,7 @@ jobs:
   import:
     needs: [ set-env ]
     runs-on: ubuntu-24.04
-    environment: ${{ needs.set-env.outputs.environment }}
+    environment: ${{ inputs.environment }}
     steps:
       - name: Login with OIDC
         env:
