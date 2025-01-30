@@ -4,43 +4,43 @@ on:
   workflow_call:
     inputs:
       docker-image-name:
-        description: 'The name of your Docker image'
+        description: 'Name of your Docker image'
         required: true
         type: string
       docker-build-file-name:
-        description: 'The filename of a Dockerfile'
+        description: 'Filename of a Dockerfile'
         default: 'Dockerfile'
         required: false
         type: string
       docker-build-context:
-        description: 'The relative or absolute path to a local directory containing a Dockerfile'
+        description: 'Relative or absolute path to a local directory containing a Dockerfile'
         default: '.'
         required: false
         type: string
       docker-build-args:
-        description: 'Specify additional arguments to pass to your Docker image during build time'
+        description: 'Additional arguments to pass to your Docker image during build time'
         required: false
         type: string
       docker-build-target:
-        description: 'Specify a target layer in the Dockerfile you want to build'
+        description: 'Target layer in the Dockerfile you want to build'
         required: false
         type: string
       docker-tag-prefix:
-        description: 'Specify a prefix that you want to add to all of the published image tags'
+        description: 'Prefix that you want to add to all of the published image tags'
         required: false
         type: string
       import-without-deploy:
-        description: 'Build and import the image into ACR but do not update the Container App revision'
+        description: 'Import the image but do not deploy it?'
         required: false
         default: false
         type: boolean
       environment:
-        description: 'Specify the environment you are deploying to'
+        description: 'Environment you are deploying to'
         default: 'development'
         required: false
         type: string
       annotate-release:
-        description: 'Annotate the release in App Insights'
+        description: 'Annotate the release in App Insights?'
         default: false
         required: false
         type: boolean
@@ -64,223 +64,37 @@ on:
       azure-acr-name:
         required: true
 
+env:
+  AZURE_CLI_VERSION: 2.68.0
+
 jobs:
-  set-env:
-    name: Set environment variables
-    runs-on: ubuntu-24.04
-    outputs:
-      environment: ${{ steps.var.outputs.environment }}
-      branch: ${{ steps.var.outputs.branch }}
-      checked-out-sha: ${{ steps.var.outputs.checked-out-sha }}
-      github_repository_lc: ${{ steps.var.outputs.github_repository_lc }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref }}
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      environment: ${{ inputs.environment }}
+      docker-image-name: ${{ inputs.docker-image-name }}
+      docker-build-file-name: ${{ inputs.docker-build-file-name }}
+      docker-build-context: ${{ inputs.docker-build-context }}
+      docker-build-args: ${{ inputs.docker-build-args }}
+      docker-build-target: ${{ inputs.docker-build-target }}
+      docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
+    secrets: inherit
 
-      - id: var
-        run: |
-          GIT_REF=${{ github.ref_name }}
-          GIT_BRANCH=${GIT_REF//\//-}
-          INPUT_ENVIRONMENT=${{ inputs.environment }}
-          ENVIRONMENT=${INPUT_ENVIRONMENT:-"development"}
-          CHECKED_OUT_SHA="$(git log -1 '--format=format:%H')"
-          GITHUB_REPOSITORY=${{ github.repository }}
-          echo "environment=${ENVIRONMENT,,}" >> $GITHUB_OUTPUT
-          echo "branch=$GIT_BRANCH" >> $GITHUB_OUTPUT
-          echo "checked-out-sha=${CHECKED_OUT_SHA}" >> $GITHUB_OUTPUT
-          echo "github_repository_lc=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
+  import:
+    uses: ./.github/workflows/import.yml
+    with:
+      environment: ${{ inputs.environment }}
+      az-cli-version: ${{ env.AZURE_CLI_VERSION }}
+      docker-image-name: ${{ inputs.docker-image-name }}
+      docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
+    secrets: inherit
 
-  build-and-push-image:
-    name: Build and push to GHCR
-    needs: set-env
-    runs-on: ubuntu-24.04
-    environment: ${{ needs.set-env.outputs.environment }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref }}
-
-      - name: GitHub Container Registry login
-        uses: docker/login-action@v3
-        with:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          registry: ghcr.io
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ inputs.docker-build-context }}
-          file: ${{ inputs.docker-build-file-name }}
-          target: ${{ inputs.docker-build-target }}
-          build-args: |
-            ${{ inputs.docker-build-args }}
-            COMMIT_SHA=${{ needs.set-env.outputs.checked-out-sha }}
-          secrets: github_token=${{ secrets.GITHUB_TOKEN }}
-          tags: |
-            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}${{ needs.set-env.outputs.branch }}
-            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}
-            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}latest
-          push: true
-          cache-from: type=gha
-
-  acr-import:
-    name: Import images to ${{ needs.set-env.outputs.environment }} ACR
-    needs: [ build-and-push-image, set-env ]
-    runs-on: ubuntu-24.04
-    environment: ${{ needs.set-env.outputs.environment }}
-    steps:
-      - name: Azure login with ACR OIDC
-        env:
-          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
-          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
-          AZURE_ACR_CLIENT_ID: ${{ secrets.azure-acr-client-id || '' }}
-        if: env.AZURE_TENANT_ID && env.AZURE_SUBSCRIPTION && env.AZURE_ACR_CLIENT_ID
-        uses: azure/login@v2
-        with:
-          tenant-id: ${{ secrets.azure-tenant-id }}
-          subscription-id: ${{ secrets.azure-subscription-id }}
-          client-id: ${{ secrets.azure-acr-client-id }}
-
-      - name: Azure login with ACR credentials
-        env:
-          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
-          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
-          AZURE_ACR_CLIENT_ID: ${{ secrets.azure-acr-client-id || '' }}
-        if: ${{ !(env.AZURE_TENANT_ID && env.AZURE_SUBSCRIPTION && env.AZURE_ACR_CLIENT_ID) }}
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.azure-acr-credentials }}
-
-      - name: Run ACR Import
-        uses: azure/cli@v2
-        with:
-          azcliversion: 2.68.0
-          inlineScript: |
-            TAGS=(
-              ${{ inputs.docker-tag-prefix }}${{ needs.set-env.outputs.branch }}
-              ${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}
-              ${{ inputs.docker-tag-prefix }}latest
-            )
-            az config set extension.use_dynamic_install=yes_without_prompt
-            for tag in "${TAGS[@]}"
-            do
-              az acr import \
-                --name ${{ secrets.azure-acr-name }} \
-                --source "ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:$tag" \
-                --image "${{ inputs.docker-image-name }}:$tag" \
-                --username ${{ github.actor }} \
-                --password ${{ secrets.GITHUB_TOKEN }} \
-                --force
-            done
-
-  deploy-image:
-    name: Deploy '${{ needs.set-env.outputs.branch }}' to ${{ needs.set-env.outputs.environment }}
+  deploy:
+    uses: ./.github/workflows/deploy.yml
     if: ${{ inputs.import-without-deploy == false }}
-    needs: [ acr-import, set-env ]
-    runs-on: ubuntu-24.04
-    environment: ${{ needs.set-env.outputs.environment }}
-    steps:
-      - name: Azure login with ACA OIDC
-        env:
-          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
-          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
-          AZURE_ACA_CLIENT_ID: ${{ secrets.azure-aca-client-id || '' }}
-        if: env.AZURE_TENANT_ID && env.AZURE_SUBSCRIPTION && env.AZURE_ACA_CLIENT_ID
-        uses: azure/login@v2
-        with:
-          tenant-id: ${{ secrets.azure-tenant-id }}
-          subscription-id: ${{ secrets.azure-subscription-id }}
-          client-id: ${{ secrets.azure-aca-client-id }}
-
-      - name: Azure login with ACA credentials
-        env:
-          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
-          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
-          AZURE_ACA_CLIENT_ID: ${{ secrets.azure-aca-client-id || '' }}
-        if: ${{ !(env.AZURE_TENANT_ID && env.AZURE_SUBSCRIPTION && env.AZURE_ACA_CLIENT_ID) }}
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.azure-aca-credentials }}
-
-      - name: Update Azure Container Apps Revision
-        uses: azure/CLI@v2
-        id: azure
-        with:
-          azcliversion: 2.68.0
-          inlineScript: |
-            az config set extension.use_dynamic_install=yes_without_prompt
-            UPDATE=$(az containerapp update \
-              --name "${{ secrets.azure-aca-name }}" \
-              --resource-group "${{ secrets.azure-aca-resource-group }}" \
-              --image "${{ secrets.azure-acr-name }}.azurecr.io/${{ inputs.docker-image-name }}:${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}" \
-              --only-show-errors)
-
-            NEW_REVISION=$(echo "$UPDATE" | jq -r '.properties.latestRevisionName')
-            NEW_TAG=$(echo "$UPDATE" | jq -r '.properties.template.containers[0].image')
-
-            echo "[i] Deploying $NEW_REVISION with image tag $NEW_TAG..."
-
-            HEALTH=""
-            STATE=""
-
-            TIMEOUT=$((SECONDS+60))
-
-            until [[
-              $HEALTH == 'Healthy'
-              && $STATE == 'Provisioned'
-            ]]
-            do
-              REVISION_DETAILS=$(az containerapp revision show \
-                --revision "$NEW_REVISION" \
-                --resource-group "${{ secrets.azure-aca-resource-group }}")
-
-              STATE=$(echo "$REVISION_DETAILS" | jq -r '.properties.provisioningState');
-              HEALTH=$(echo "$REVISION_DETAILS" | jq -r '.properties.healthState');
-              STATUS=$(echo "$REVISION_DETAILS" | jq -r '.properties.runningState');
-              ERROR_MSG=$(echo "$REVISION_DETAILS" | jq -r '.properties.provisioningError')
-
-              echo "[i] Status: $STATE   Health: $HEALTH   State: $STATUS"
-
-              if [[
-                $HEALTH == 'Unhealthy'
-                && $STATE == 'Failed'
-              ]]
-              then
-                echo "[!] Container App deployment failed!"
-                echo "$ERROR_MSG" >&2
-                exit 1
-              fi
-
-              # Safety condition to avoid unnecessary execution time
-              if [[ $SECONDS -gt $TIMEOUT ]]
-              then
-                echo "[!] Container App failed to reach a steady state after 60 seconds" >&2
-                exit 1
-              fi
-
-              sleep 2
-            done
-
-            # Final output to evidence the state
-            echo "Deployment completed successfully!"
-            exit 0
-
-      - name: Create release annotation
-        if: inputs.annotate-release
-        uses: azure/CLI@v2
-        with:
-          azcliversion: 2.68.0
-          inlineScript: |
-            APPINSIGHTS_ID=$(az resource show -g ${{ secrets.azure-aca-resource-group }} -n ${{ secrets.azure-aca-resource-group }}-insights --resource-type "microsoft.insights/components" --query id -o tsv)
-            UUID=$(cat /proc/sys/kernel/random/uuid)
-            sha=${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}
-            triggerBy=${{ github.actor }}
-            eventTime=`date '+%Y-%m-%dT%H:%M:%S' -u`
-            category="Deployment"
-            data='{ "Id": "'$UUID'", "AnnotationName": "'$sha'", "EventTime":"'$eventTime'", "Category":"'$category'", "Properties":"{ \"ReleaseName\":\"'$sha'\", \"TriggeredBy\": \"'$triggerBy'\" }"}'
-            az rest --method put --uri "$APPINSIGHTS_ID/Annotations?api-version=2015-05-01" --body "$data" -o none
+    with:
+      environment: ${{ inputs.environment }}
+      az-cli-version: ${{ env.AZURE_CLI_VERSION }}
+      docker-image-name: ${{ inputs.docker-image-name }}
+      docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
+    secrets: inherit
