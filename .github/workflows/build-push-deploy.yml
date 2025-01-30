@@ -44,6 +44,7 @@ on:
         default: false
         required: false
         type: boolean
+
     secrets:
       azure-tenant-id:
         required: false
@@ -63,9 +64,6 @@ on:
         required: false
       azure-acr-name:
         required: true
-
-env:
-  AZURE_CLI_VERSION: 2.68.0
 
 jobs:
   build:

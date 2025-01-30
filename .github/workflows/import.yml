@@ -11,11 +11,6 @@ on:
         description: 'Specify a prefix that you want to add to all of the published image tags'
         required: false
         type: string
-      az_cli_version:
-        description: 'Version of Azure CLI to use'
-        required: false
-        type: string
-        default: '2.68.0'
       environment:
         description: 'Specify the environment you are deploying to'
         default: 'development'
@@ -33,6 +28,9 @@ on:
         required: false
       azure-acr-name:
         required: true
+
+env:
+  AZURE_CLI_VERSION: 2.68.0
 
 jobs:
   set-env:
@@ -90,7 +88,7 @@ jobs:
       - name: Import to ACR
         uses: azure/cli@v2
         with:
-          azcliversion: ${{ inputs.az_cli_version }}
+          azcliversion: ${{ env.AZURE_CLI_VERSION }}
           inlineScript: |
             TAGS=(
               ${{ inputs.docker-tag-prefix }}${{ needs.set-env.outputs.branch }}
