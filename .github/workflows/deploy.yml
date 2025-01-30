@@ -48,7 +48,6 @@ jobs:
     name: Set environment variables
     runs-on: ubuntu-24.04
     outputs:
-      environment: ${{ steps.var.outputs.environment }}
       checked-out-sha: ${{ steps.var.outputs.checked-out-sha }}
       app-insights-name: ${{ steps.var.outputs.app-insights-name }}
     steps:
@@ -58,18 +57,16 @@ jobs:
 
       - id: var
         run: |
-          ENVIRONMENT=${{ inputs.environment }}
           CHECKED_OUT_SHA="$(git log -1 '--format=format:%H')"
           INPUT_APP_INSIGHTS_NAME=${{ inputs.app-insights-name }}
           APP_INSIGHTS_NAME=${INPUT_APP_INSIGHTS_NAME:-"${{ secrets.azure-aca-resource-group }}-insights"}
-          echo "environment=${ENVIRONMENT,,}" >> $GITHUB_OUTPUT
           echo "checked-out-sha=${CHECKED_OUT_SHA}" >> $GITHUB_OUTPUT
           echo "app-insights-name=${APP_INSIGHTS_NAME}" >> $GITHUB_OUTPUT
 
   deploy:
     needs: [ set-env ]
     runs-on: ubuntu-24.04
-    environment: ${{ needs.set-env.outputs.environment }}
+    environment: ${{ inputs.environment }}
     steps:
       - name: Login with OIDC
         env:
