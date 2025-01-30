@@ -81,6 +81,7 @@ jobs:
     secrets: inherit
 
   import:
+    needs: [ build ]
     uses: ./.github/workflows/import.yml
     with:
       environment: ${{ inputs.environment }}
@@ -90,6 +91,7 @@ jobs:
     secrets: inherit
 
   deploy:
+    needs: [ import ]
     uses: ./.github/workflows/deploy.yml
     if: ${{ inputs.import-without-deploy == false }}
     with:
