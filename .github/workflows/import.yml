@@ -69,6 +69,7 @@ jobs:
               ${{ inputs.docker-tag-prefix }}latest
             )
             az config set extension.use_dynamic_install=yes_without_prompt
+            echo "### Imported 📥" >> $GITHUB_STEP_SUMMARY
             for tag in "${TAGS[@]}"
             do
               az acr import \
@@ -78,4 +79,5 @@ jobs:
                 --username ${{ github.actor }} \
                 --password ${{ secrets.GITHUB_TOKEN }} \
                 --force
+              echo "- ${{ steps.var.outputs.github_repository_lc }}:$tag" >> $GITHUB_STEP_SUMMARY
             done

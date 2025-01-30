@@ -34,16 +34,20 @@ on:
         required: false
         default: false
         type: boolean
-      environment:
-        description: 'Environment you are deploying to'
-        default: 'development'
-        required: false
-        type: string
       annotate-release:
         description: 'Annotate the release in App Insights?'
         default: false
         required: false
         type: boolean
+      app-insights-name:
+        description: 'Name of App Insights resource'
+        required: false
+        type: string
+      environment:
+        description: 'Environment you are deploying to'
+        default: 'development'
+        required: false
+        type: string
 
     secrets:
       azure-tenant-id:
@@ -97,4 +101,6 @@ jobs:
       environment: ${{ inputs.environment }}
       docker-image-name: ${{ inputs.docker-image-name }}
       docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
+      annotate-release: ${{ inputs.annotate-release }}
+      app-insights-name: ${{ inputs.app-insights-name}}
     secrets: inherit

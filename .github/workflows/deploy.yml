@@ -72,6 +72,28 @@ jobs:
           azcliversion: ${{ env.AZURE_CLI_VERSION }}
           inlineScript: |
             az config set extension.use_dynamic_install=yes_without_prompt
+
+            print_state() {
+              echo "$RESULT" >> $GITHUB_STEP_SUMMARY
+              echo '|State|Health|Status|' >> $GITHUB_STEP_SUMMARY
+              echo '|--|--|--|' >> $GITHUB_STEP_SUMMARY
+              echo "|\`$STATE\`|\`$HEALTH\`|\`$STATUS\`|" >> $GITHUB_STEP_SUMMARY
+            }
+
+            ## This functionality will only work if you have the 'Read' RBAC
+            ## Role for the Container App environment
+            #print_logs() {
+            #  RECENT_LOGS=$(az containerapp logs show \
+            #    --resource-group "${{ secrets.azure-aca-resource-group }}" \
+            #    --revision "$NEW_REVISION" --name "${{ secrets.azure-aca-name }}")
+            #
+            #  echo '### Container Logs' >> $GITHUB_STEP_SUMMARY
+            #  echo 'The last 20 log lines are displayed below' >> $GITHUB_STEP_SUMMARY
+            #  echo '```' >> $GITHUB_STEP_SUMMARY
+            #  echo "$RECENT_LOGS" >> $GITHUB_STEP_SUMMARY
+            #  echo '```' >> $GITHUB_STEP_SUMMARY
+            #}
+
             UPDATE=$(az containerapp update \
               --name "${{ secrets.azure-aca-name }}" \
               --resource-group "${{ secrets.azure-aca-resource-group }}" \
@@ -82,6 +104,12 @@ jobs:
             NEW_TAG=$(echo "$UPDATE" | jq -r '.properties.template.containers[0].image')
 
             echo "[i] Deploying $NEW_REVISION with image tag $NEW_TAG..."
+
+            echo '## Deploying to `${{ inputs.environment }}` 🚢' >> $GITHUB_STEP_SUMMARY
+            echo '### Details' >> $GITHUB_STEP_SUMMARY
+            echo '|Image|Tag|Revision|' >> $GITHUB_STEP_SUMMARY
+            echo '|--|--|--|' >> $GITHUB_STEP_SUMMARY
+            echo "|\`${{ inputs.docker-image-name }}\`|\`${{ inputs.docker-tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}\`|\`$NEW_REVISION\`|" >> $GITHUB_STEP_SUMMARY
 
             HEALTH=""
             STATE=""
@@ -109,15 +137,22 @@ jobs:
                 && $STATE == 'Failed'
               ]]
               then
-                echo "[!] Container App deployment failed!"
-                echo "$ERROR_MSG" >&2
+                RESULT="Container App replica failed to provision"
+                echo '### Result - Failed ❌' >> $GITHUB_STEP_SUMMARY
+                print_state
+                #print_logs
+                echo "::error ::$RESULT"
                 exit 1
               fi
 
               # Safety condition to avoid unnecessary execution time
               if [[ $SECONDS -gt $TIMEOUT ]]
               then
-                echo "[!] Container App failed to reach a steady state after 60 seconds" >&2
+                RESULT="Container App failed to reach a steady state after 60 seconds"
+                echo '### Result - Failed ❌' >> $GITHUB_STEP_SUMMARY
+                print_state
+                #print_logs
+                echo "::error ::$RESULT"
                 exit 1
               fi
 
@@ -125,8 +160,11 @@ jobs:
             done
 
             # Final output to evidence the state
-            echo "Deployment completed successfully!"
-            exit 0
+            RESULT="Deployment completed successfully!"
+            echo '### Result - Success ✅' >> $GITHUB_STEP_SUMMARY
+            print_state
+            #print_logs
+            echo "$RESULT"
 
       - name: Create release annotation
         if: inputs.annotate-release
@@ -134,7 +172,7 @@ jobs:
         with:
           azcliversion: ${{ env.AZURE_CLI_VERSION }}
           inlineScript: |
-            APPINSIGHTS_ID=$(az resource show -g ${{ secrets.azure-aca-resource-group }} -n ${{ steps.var.outputs.checked-out-sha }} --resource-type "microsoft.insights/components" --query id -o tsv)
+            APPINSIGHTS_ID=$(az resource show -g ${{ secrets.azure-aca-resource-group }} -n ${{ steps.var.outputs.app-insights-name }} --resource-type "microsoft.insights/components" --query id -o tsv)
             UUID=$(cat /proc/sys/kernel/random/uuid)
             sha=${{ inputs.docker-tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}
             triggerBy=${{ github.actor }}
@@ -142,3 +180,7 @@ jobs:
             category="Deployment"
             data='{ "Id": "'$UUID'", "AnnotationName": "'$sha'", "EventTime":"'$eventTime'", "Category":"'$category'", "Properties":"{ \"ReleaseName\":\"'$sha'\", \"TriggeredBy\": \"'$triggerBy'\" }"}'
             az rest --method put --uri "$APPINSIGHTS_ID/Annotations?api-version=2015-05-01" --body "$data" -o none
+            echo '### Annotation 📝' >> $GITHUB_STEP_SUMMARY
+            echo '|Id|Event Time|Category|Author|' >> $GITHUB_STEP_SUMMARY
+            echo '|--|--|--|--|' >> $GITHUB_STEP_SUMMARY
+            echo "\`$UUID\`|$eventTime|$category|$triggerBy|" >> $GITHUB_STEP_SUMMARY
