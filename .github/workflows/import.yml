@@ -19,21 +19,22 @@ on:
 
 env:
   AZURE_CLI_VERSION: 2.68.0
+  AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
+  AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
+  AZURE_ACR_CLIENT_ID: ${{ secrets.azure-acr-client-id || '' }}
 
 jobs:
-  set-env:
-    name: Set environment variables
+  import:
     runs-on: ubuntu-24.04
-    outputs:
-      branch: ${{ steps.var.outputs.branch }}
-      checked-out-sha: ${{ steps.var.outputs.checked-out-sha }}
-      github_repository_lc: ${{ steps.var.outputs.github_repository_lc }}
+    environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
 
-      - id: var
+      - name: Set outputs
+        id: var
         run: |
           GIT_REF=${{ github.ref_name }}
           GIT_BRANCH=${GIT_REF//\//-}
@@ -43,16 +44,7 @@ jobs:
           echo "checked-out-sha=${CHECKED_OUT_SHA}" >> $GITHUB_OUTPUT
           echo "github_repository_lc=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
 
-  import:
-    needs: [ set-env ]
-    runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment }}
-    steps:
       - name: Login with OIDC
-        env:
-          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
-          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
-          AZURE_ACR_CLIENT_ID: ${{ secrets.azure-acr-client-id || '' }}
         if: env.AZURE_TENANT_ID && env.AZURE_SUBSCRIPTION && env.AZURE_ACR_CLIENT_ID
         uses: azure/login@v2
         with:
@@ -61,10 +53,6 @@ jobs:
           client-id: ${{ secrets.azure-acr-client-id }}
 
       - name: Login with Client Secret
-        env:
-          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
-          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
-          AZURE_ACR_CLIENT_ID: ${{ secrets.azure-acr-client-id || '' }}
         if: ${{ !(env.AZURE_TENANT_ID && env.AZURE_SUBSCRIPTION && env.AZURE_ACR_CLIENT_ID) }}
         uses: azure/login@v2
         with:
@@ -76,8 +64,8 @@ jobs:
           azcliversion: ${{ env.AZURE_CLI_VERSION }}
           inlineScript: |
             TAGS=(
-              ${{ inputs.docker-tag-prefix }}${{ needs.set-env.outputs.branch }}
-              ${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}
+              ${{ inputs.docker-tag-prefix }}${{ steps.var.outputs.branch }}
+              ${{ inputs.docker-tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}
               ${{ inputs.docker-tag-prefix }}latest
             )
             az config set extension.use_dynamic_install=yes_without_prompt
@@ -85,7 +73,7 @@ jobs:
             do
               az acr import \
                 --name ${{ secrets.azure-acr-name }} \
-                --source "ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:$tag" \
+                --source "ghcr.io/${{ steps.var.outputs.github_repository_lc }}:$tag" \
                 --image "${{ inputs.docker-image-name }}:$tag" \
                 --username ${{ github.actor }} \
                 --password ${{ secrets.GITHUB_TOKEN }} \
