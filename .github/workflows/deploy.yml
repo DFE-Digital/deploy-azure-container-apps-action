@@ -16,11 +16,6 @@ on:
         description: 'Name of App Insights resource'
         required: false
         type: string
-      az-cli-version:
-        description: 'Version of Azure CLI to use'
-        required: false
-        type: string
-        default: '2.68.0'
       environment:
         description: 'Environment you are deploying to'
         default: 'development'
@@ -40,6 +35,9 @@ on:
         required: true
       azure-aca-resource-group:
         required: true
+
+env:
+  AZURE_CLI_VERSION: 2.68.0
 
 jobs:
   set-env:
@@ -95,7 +93,7 @@ jobs:
         uses: azure/CLI@v2
         id: azure
         with:
-          azcliversion: ${{ inputs.az-cli-version }}
+          azcliversion: ${{ env.AZURE_CLI_VERSION }}
           inlineScript: |
             az config set extension.use_dynamic_install=yes_without_prompt
             UPDATE=$(az containerapp update \
@@ -158,7 +156,7 @@ jobs:
         if: inputs.annotate-release
         uses: azure/CLI@v2
         with:
-          azcliversion: ${{ inputs.az-cli-version }}
+          azcliversion: ${{ env.AZURE_CLI_VERSION }}
           inlineScript: |
             APPINSIGHTS_ID=$(az resource show -g ${{ secrets.azure-aca-resource-group }} -n ${{ needs.set-env.outputs.checked-out-sha }} --resource-type "microsoft.insights/components" --query id -o tsv)
             UUID=$(cat /proc/sys/kernel/random/uuid)
