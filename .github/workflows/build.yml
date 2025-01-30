@@ -36,19 +36,17 @@ on:
         type: string
 
 jobs:
-  set-env:
-    name: Set environment variables
+  build:
     runs-on: ubuntu-24.04
-    outputs:
-      branch: ${{ steps.var.outputs.branch }}
-      checked-out-sha: ${{ steps.var.outputs.checked-out-sha }}
-      github_repository_lc: ${{ steps.var.outputs.github_repository_lc }}
+    environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
 
-      - id: var
+      - name: Set outputs
+        id: var
         run: |
           GIT_REF=${{ github.ref_name }}
           GIT_BRANCH=${GIT_REF//\//-}
@@ -58,16 +56,7 @@ jobs:
           echo "checked-out-sha=${CHECKED_OUT_SHA}" >> $GITHUB_OUTPUT
           echo "github_repository_lc=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
 
-  build:
-    needs: set-env
-    runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref }}
-
-      - name: GitHub Container Registry login
+      - name: Login with GitHub Token
         uses: docker/login-action@v3
         with:
           username: ${{ github.actor }}
@@ -77,7 +66,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push docker image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.docker-build-context }}
@@ -85,11 +74,11 @@ jobs:
           target: ${{ inputs.docker-build-target }}
           build-args: |
             ${{ inputs.docker-build-args }}
-            COMMIT_SHA=${{ needs.set-env.outputs.checked-out-sha }}
+            COMMIT_SHA=${{ steps.var.outputs.checked-out-sha }}
           secrets: github_token=${{ secrets.GITHUB_TOKEN }}
           tags: |
-            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}${{ needs.set-env.outputs.branch }}
-            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}sha-${{ needs.set-env.outputs.checked-out-sha }}
-            ghcr.io/${{ needs.set-env.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}latest
+            ghcr.io/${{ steps.var.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}${{ steps.var.outputs.branch }}
+            ghcr.io/${{ steps.var.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}
+            ghcr.io/${{ steps.var.outputs.github_repository_lc }}:${{ inputs.docker-tag-prefix }}latest
           push: true
           cache-from: type=gha
