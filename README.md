@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build-push-deploy:
-    uses: DFE-Digital/deploy-azure-container-apps-action/.github/workflows/build-push-deploy.yml@v3.0.0
+    uses: DFE-Digital/deploy-azure-container-apps-action/.github/workflows/build-push-deploy.yml@v4.1.0
     with:
       docker-image-name: 'my-app'
       docker-build-file-name: 'Dockerfile'
@@ -37,7 +37,7 @@ jobs:
 ```yml
 jobs:
   build-push-deploy:
-    uses: DFE-Digital/deploy-azure-container-apps-action/.github/workflows/build-push-deploy.yml@v3.0.0
+    uses: DFE-Digital/deploy-azure-container-apps-action/.github/workflows/build-push-deploy.yml@v4.1.0
     with:
       docker-image-name: 'my-app'
       docker-build-file-name: 'Dockerfile'
