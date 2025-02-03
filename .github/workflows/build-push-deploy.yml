@@ -1,4 +1,4 @@
-name: Build, push, deploy
+name: Build, import, deploy
 
 on:
   workflow_call:
@@ -72,7 +72,7 @@ on:
 jobs:
   build:
     name: Build
-    uses: ./.github/workflows/build.yml
+    uses: ./.github/workflows/_build.yml
     with:
       environment: ${{ inputs.environment }}
       docker-image-name: ${{ inputs.docker-image-name }}
@@ -85,7 +85,7 @@ jobs:
   import:
     name: Import
     needs: [ build ]
-    uses: ./.github/workflows/import.yml
+    uses: ./.github/workflows/_import.yml
     with:
       environment: ${{ inputs.environment }}
       docker-image-name: ${{ inputs.docker-image-name }}
@@ -95,7 +95,7 @@ jobs:
   deploy:
     name: Deploy
     needs: [ import ]
-    uses: ./.github/workflows/deploy.yml
+    uses: ./.github/workflows/_deploy.yml
     if: ${{ inputs.import-without-deploy == false }}
     with:
       environment: ${{ inputs.environment }}
