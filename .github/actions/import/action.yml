@@ -70,7 +70,7 @@ runs:
     - name: Import to ACR
       uses: azure/cli@v2
       with:
-        azcliversion: ${{ input.azure-cli-version }}
+        azcliversion: ${{ inputs.azure-cli-version }}
         inlineScript: |
           TAGS=(
             ${{ inputs.tag-prefix }}${{ steps.var.outputs.branch }}
