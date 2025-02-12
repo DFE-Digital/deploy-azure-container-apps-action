@@ -42,14 +42,29 @@ on:
       azure-acr-name:
         required: true
 
+env:
+  AZURE_CLI_VERSION: 2.68.0
+
 jobs:
   deploy:
-    name: Deploy
-    uses: ./.github/workflows/_deploy.yml
-    with:
-      environment: ${{ inputs.environment }}
-      docker-image-name: ${{ inputs.docker-image-name }}
-      docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
-      annotate-release: ${{ inputs.annotate-release }}
-      app-insights-name: ${{ inputs.app-insights-name}}
-    secrets: inherit
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: ./.github/actions/deploy
+        with:
+          azure-cli-version: ${{ env.AZURE_CLI_VERSION }}
+          azure-tenant-id: ${{ secrets.azure-tenant-id }}
+          azure-subscription-id: ${{ secrets.azure-subscription-id }}
+          azure-aca-client-id: ${{ secrets.azure-aca-client-id }}
+          azure-aca-credentials: ${{ secrets.azure-aca-credentials }}
+          azure-aca-name: ${{ secrets.azure-aca-name }}
+          azure-aca-resource-group: ${{ secrets.azure-aca-resource-group }}
+          azure-acr-name: ${{ secrets.azure-acr-name }}
+          annotate-release: ${{ inputs.annotate-release }}
+          app-insights-name: ${{ inputs.app-insights-name }}
+          image-name: ${{ inputs.docker-image-name }}
+          tag-prefix: ${{ inputs.docker-tag-prefix }}
+        env:
+          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
+          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
+          AZURE_ACA_CLIENT_ID: ${{ secrets.azure-aca-client-id || '' }}

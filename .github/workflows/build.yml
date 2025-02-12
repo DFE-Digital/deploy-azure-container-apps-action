@@ -37,13 +37,15 @@ on:
 
 jobs:
   build:
-    name: Build
-    uses: ./.github/workflows/_build.yml
-    with:
-      environment: ${{ inputs.environment }}
-      docker-image-name: ${{ inputs.docker-image-name }}
-      docker-build-file-name: ${{ inputs.docker-build-file-name }}
-      docker-build-context: ${{ inputs.docker-build-context }}
-      docker-build-args: ${{ inputs.docker-build-args }}
-      docker-build-target: ${{ inputs.docker-build-target }}
-      docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: ./.github/actions/build
+        with:
+          build-file-name: ${{ inputs.docker-build-file-name }}
+          build-context: ${{ inputs.docker-build-context }}
+          build-args: ${{ inputs.docker-build-args }}
+          build-target: ${{ inputs.docker-build-target }}
+          image-name: ${{ inputs.docker-image-name }}
+          tag-prefix: ${{ inputs.docker-tag-prefix }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}

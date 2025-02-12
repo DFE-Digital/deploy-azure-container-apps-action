@@ -69,38 +69,60 @@ on:
       azure-acr-name:
         required: true
 
+env:
+  AZURE_CLI_VERSION: 2.68.0
+
 jobs:
-  build:
-    name: Build
-    uses: ./.github/workflows/_build.yml
-    with:
-      environment: ${{ inputs.environment }}
-      docker-image-name: ${{ inputs.docker-image-name }}
-      docker-build-file-name: ${{ inputs.docker-build-file-name }}
-      docker-build-context: ${{ inputs.docker-build-context }}
-      docker-build-args: ${{ inputs.docker-build-args }}
-      docker-build-target: ${{ inputs.docker-build-target }}
-      docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
-
-  import:
-    name: Import
-    needs: [ build ]
-    uses: ./.github/workflows/_import.yml
-    with:
-      environment: ${{ inputs.environment }}
-      docker-image-name: ${{ inputs.docker-image-name }}
-      docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
-    secrets: inherit
-
   deploy:
-    name: Deploy
-    needs: [ import ]
-    uses: ./.github/workflows/_deploy.yml
-    if: ${{ inputs.import-without-deploy == false }}
-    with:
-      environment: ${{ inputs.environment }}
-      docker-image-name: ${{ inputs.docker-image-name }}
-      docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
-      annotate-release: ${{ inputs.annotate-release }}
-      app-insights-name: ${{ inputs.app-insights-name}}
-    secrets: inherit
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - shell: bash
+        run: |
+          echo '## Deploying to `${{ inputs.environment }}` 🚢' >> $GITHUB_SUMMARY
+
+      - uses: ./.github/actions/build
+        with:
+          build-file-name: ${{ inputs.docker-build-file-name }}
+          build-context: ${{ inputs.docker-build-context }}
+          build-args: ${{ inputs.docker-build-args }}
+          build-target: ${{ inputs.docker-build-target }}
+          image-name: ${{ inputs.docker-image-name }}
+          tag-prefix: ${{ inputs.docker-tag-prefix }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: ./.github/actions/import
+        with:
+          azure-cli-version: ${{ env.AZURE_CLI_VERSION }}
+          azure-tenant-id: ${{ secrets.azure-tenant-id }}
+          azure-subscription-id: ${{ secrets.azure-subscription-id }}
+          azure-acr-client-id: ${{ secrets.azure-acr-client-id }}
+          azure-acr-credentials: ${{ secrets.azure-acr-credentials }}
+          azure-acr-name: ${{ secrets.azure-acr-name }}
+          image-name: ${{ inputs.docker-image-name }}
+          tag-prefix: ${{ inputs.docker-tag-prefix }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
+          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
+          AZURE_ACR_CLIENT_ID: ${{ secrets.azure-acr-client-id || '' }}
+
+      - uses: ./.github/actions/deploy
+        if: ${{ inputs.import-without-deploy == false }}
+        with:
+          azure-cli-version: ${{ env.AZURE_CLI_VERSION }}
+          azure-tenant-id: ${{ secrets.azure-tenant-id }}
+          azure-subscription-id: ${{ secrets.azure-subscription-id }}
+          azure-aca-client-id: ${{ secrets.azure-aca-client-id }}
+          azure-aca-credentials: ${{ secrets.azure-aca-credentials }}
+          azure-aca-name: ${{ secrets.azure-aca-name }}
+          azure-aca-resource-group: ${{ secrets.azure-aca-resource-group }}
+          azure-acr-name: ${{ secrets.azure-acr-name }}
+          annotate-release: ${{ inputs.annotate-release }}
+          app-insights-name: ${{ inputs.app-insights-name }}
+          image-name: ${{ inputs.docker-image-name }}
+          tag-prefix: ${{ inputs.docker-tag-prefix }}
+        env:
+          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
+          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
+          AZURE_ACA_CLIENT_ID: ${{ secrets.azure-aca-client-id || '' }}
