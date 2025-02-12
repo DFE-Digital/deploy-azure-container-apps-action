@@ -40,6 +40,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
       - uses: ./.github/actions/build
         with:
           build-file-name: ${{ inputs.docker-build-file-name }}

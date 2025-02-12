@@ -34,6 +34,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
       - uses: ./.github/actions/import
         with:
           azure-cli-version: ${{ env.AZURE_CLI_VERSION }}
