@@ -1,0 +1,197 @@
+name: Update Container App
+description: "Creates a Container App revision with the latest Docker Tag and can optionally set an annotation for the deployment in App Insights"
+
+inputs:
+  azure-cli-version:
+    description: 'Version of Azure CLI to use'
+    required: false
+    default: 2.68.0
+  azure-tenant-id:
+    description: 'Azure Tenant ID'
+    required: false
+  azure-subscription-id:
+    description: 'Azure Subscription ID'
+    required: false
+  azure-aca-client-id:
+    description: 'Azure Container Apps Service Principal Client ID'
+    required: false
+  azure-aca-credentials:
+    description: 'Azure Container Apps Service Principal Client Credentials in JSON'
+    required: false
+  azure-aca-name:
+    description: 'Name of the Container App'
+    required: true
+  azure-aca-resource-group:
+    description: 'Name of the Resource Group the Container App exists in'
+    required: true
+  azure-acr-name:
+    description: 'Name of the Azure Container Registry'
+    required: true
+  annotate-release:
+    description: 'Annotate the release in App Insights?'
+    default: false
+    required: false
+    type: boolean
+  app-insights-name:
+    description: 'Name of App Insights resource'
+    required: false
+    type: string
+  image-name:
+    description: 'Name of your Docker image'
+    required: true
+    type: string
+  tag-prefix:
+    description: 'Prefix that you want to add to all of the published image tags'
+    required: false
+    type: string
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.ref }}
+
+    - name: Set outputs
+      shell: bash
+      id: var
+      run: |
+        CHECKED_OUT_SHA="$(git log -1 '--format=format:%H')"
+        INPUT_APP_INSIGHTS_NAME=${{ inputs.app-insights-name }}
+        APP_INSIGHTS_NAME=${INPUT_APP_INSIGHTS_NAME:-"${{ inputs.azure-aca-resource-group }}-insights"}
+        echo "checked-out-sha=${CHECKED_OUT_SHA}" >> $GITHUB_OUTPUT
+        echo "app-insights-name=${APP_INSIGHTS_NAME}" >> $GITHUB_OUTPUT
+
+    - name: Login with OIDC
+      if: env.AZURE_TENANT_ID && env.AZURE_SUBSCRIPTION && env.AZURE_ACA_CLIENT_ID
+      uses: azure/login@v2
+      with:
+        tenant-id: ${{ inputs.azure-tenant-id }}
+        subscription-id: ${{ inputs.azure-subscription-id }}
+        client-id: ${{ inputs.azure-aca-client-id }}
+
+    - name: Login with Client Secret
+      if: ${{ !(env.AZURE_TENANT_ID && env.AZURE_SUBSCRIPTION && env.AZURE_ACA_CLIENT_ID) }}
+      uses: azure/login@v2
+      with:
+        creds: ${{ inputs.azure-aca-credentials }}
+
+    - name: Update Container revision
+      uses: azure/CLI@v2
+      id: azure
+      with:
+        azcliversion: ${{ inputs.azure-cli-version }}
+        inlineScript: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+
+          print_state() {
+            echo "$RESULT" >> $GITHUB_SUMMARY
+            echo '|State|Health|Status|' >> $GITHUB_SUMMARY
+            echo '|--|--|--|' >> $GITHUB_SUMMARY
+            echo "|\`$STATE\`|\`$HEALTH\`|\`$STATUS\`|" >> $GITHUB_SUMMARY
+          }
+
+          ## This functionality will only work if you have the 'Read' RBAC
+          ## Role for the Container App environment
+          #print_logs() {
+          #  RECENT_LOGS=$(az containerapp logs show \
+          #    --resource-group "${{ inputs.azure-aca-resource-group }}" \
+          #    --revision "$NEW_REVISION" --name "${{ inputs.azure-aca-name }}")
+          #
+          #  echo '### Container Logs' >> $GITHUB_SUMMARY
+          #  echo 'The last 20 log lines are displayed below' >> $GITHUB_SUMMARY
+          #  echo '```' >> $GITHUB_SUMMARY
+          #  echo "$RECENT_LOGS" >> $GITHUB_SUMMARY
+          #  echo '```' >> $GITHUB_SUMMARY
+          #}
+
+          UPDATE=$(az containerapp update \
+            --name "${{ inputs.azure-aca-name }}" \
+            --resource-group "${{ inputs.azure-aca-resource-group }}" \
+            --image "${{ inputs.azure-acr-name }}.azurecr.io/${{ inputs.image-name }}:${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}" \
+            --only-show-errors)
+
+          NEW_REVISION=$(echo "$UPDATE" | jq -r '.properties.latestRevisionName')
+          NEW_TAG=$(echo "$UPDATE" | jq -r '.properties.template.containers[0].image')
+
+          echo "[i] Deploying $NEW_REVISION with image tag $NEW_TAG..."
+
+          echo '### Deployment Details' >> $GITHUB_SUMMARY
+          echo '|Image|Tag|Revision|' >> $GITHUB_SUMMARY
+          echo '|--|--|--|' >> $GITHUB_SUMMARY
+          echo "|\`${{ inputs.image-name }}\`|\`${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}\`|\`$NEW_REVISION\`|" >> $GITHUB_SUMMARY
+
+          HEALTH=""
+          STATE=""
+
+          TIMEOUT=$((SECONDS+60))
+
+          until [[
+            $HEALTH == 'Healthy'
+            && $STATE == 'Provisioned'
+          ]]
+          do
+            REVISION_DETAILS=$(az containerapp revision show \
+              --revision "$NEW_REVISION" \
+              --resource-group "${{ inputs.azure-aca-resource-group }}")
+
+            STATE=$(echo "$REVISION_DETAILS" | jq -r '.properties.provisioningState');
+            HEALTH=$(echo "$REVISION_DETAILS" | jq -r '.properties.healthState');
+            STATUS=$(echo "$REVISION_DETAILS" | jq -r '.properties.runningState');
+            ERROR_MSG=$(echo "$REVISION_DETAILS" | jq -r '.properties.provisioningError')
+
+            echo "[i] Status: $STATE   Health: $HEALTH   State: $STATUS"
+
+            if [[
+              $HEALTH == 'Unhealthy'
+              && $STATE == 'Failed'
+            ]]
+            then
+              RESULT="Container App replica failed to provision"
+              echo '### Result - Failed ❌' >> $GITHUB_SUMMARY
+              print_state
+              #print_logs
+              echo "::error ::$RESULT"
+              exit 1
+            fi
+
+            # Safety condition to avoid unnecessary execution time
+            if [[ $SECONDS -gt $TIMEOUT ]]
+            then
+              RESULT="Container App failed to reach a steady state after 60 seconds"
+              echo '### Result - Failed ❌' >> $GITHUB_SUMMARY
+              print_state
+              #print_logs
+              echo "::error ::$RESULT"
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          # Final output to evidence the state
+          RESULT="Deployment completed successfully!"
+          echo '### Result - Success ✅' >> $GITHUB_SUMMARY
+          print_state
+          #print_logs
+          echo "$RESULT"
+
+    - name: Create release annotation
+      if: inputs.annotate-release
+      uses: azure/CLI@v2
+      with:
+        azcliversion: ${{ inputs.azure-cli-version }}
+        inlineScript: |
+          APPINSIGHTS_ID=$(az resource show -g ${{ inputs.azure-aca-resource-group }} -n ${{ steps.var.outputs.app-insights-name }} --resource-type "microsoft.insights/components" --query id -o tsv)
+          UUID=$(cat /proc/sys/kernel/random/uuid)
+          sha=${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}
+          triggerBy=${{ github.actor }}
+          eventTime=`date '+%Y-%m-%dT%H:%M:%S' -u`
+          category="Deployment"
+          data='{ "Id": "'$UUID'", "AnnotationName": "'$sha'", "EventTime":"'$eventTime'", "Category":"'$category'", "Properties":"{ \"ReleaseName\":\"'$sha'\", \"TriggeredBy\": \"'$triggerBy'\" }"}'
+          az rest --method put --uri "$APPINSIGHTS_ID/Annotations?api-version=2015-05-01" --body "$data" -o none
+          echo '### Annotation 📝' >> $GITHUB_SUMMARY
+          echo '|Id|Event Time|Category|Author|' >> $GITHUB_SUMMARY
+          echo '|--|--|--|--|' >> $GITHUB_SUMMARY
+          echo "\`$UUID\`|$eventTime|$category|$triggerBy|" >> $GITHUB_SUMMARY

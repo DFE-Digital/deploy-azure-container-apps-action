@@ -31,10 +31,21 @@ on:
 
 jobs:
   import:
-    name: Import
-    uses: ./.github/workflows/_import.yml
-    with:
-      environment: ${{ inputs.environment }}
-      docker-image-name: ${{ inputs.docker-image-name }}
-      docker-tag-prefix: ${{ inputs.docker-tag-prefix }}
-    secrets: inherit
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: ./.github/actions/import
+        with:
+          azure-cli-version: ${{ env.AZURE_CLI_VERSION }}
+          azure-tenant-id: ${{ secrets.azure-tenant-id }}
+          azure-subscription-id: ${{ secrets.azure-subscription-id }}
+          azure-acr-client-id: ${{ secrets.azure-acr-client-id }}
+          azure-acr-credentials: ${{ secrets.azure-acr-credentials }}
+          azure-acr-name: ${{ secrets.azure-acr-name }}
+          image-name: ${{ inputs.docker-image-name }}
+          tag-prefix: ${{ inputs.docker-tag-prefix }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          AZURE_TENANT_ID: ${{ secrets.azure-tenant-id || '' }}
+          AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
+          AZURE_ACR_CLIENT_ID: ${{ secrets.azure-acr-client-id || '' }}
