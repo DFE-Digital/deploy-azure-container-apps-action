@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/import
+      - uses: ./.github/actions/import
         with:
           azure-cli-version: ${{ env.AZURE_CLI_VERSION }}
           azure-tenant-id: ${{ secrets.azure-tenant-id }}
