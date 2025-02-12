@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: ./.github/actions/build
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/build
         with:
           build-file-name: ${{ inputs.docker-build-file-name }}
           build-context: ${{ inputs.docker-build-context }}
