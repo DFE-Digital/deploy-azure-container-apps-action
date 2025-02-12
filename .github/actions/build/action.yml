@@ -56,7 +56,7 @@ runs:
       uses: docker/login-action@v3
       with:
         username: ${{ github.actor }}
-        password: ${{ input.github-token }}
+        password: ${{ inputs.github-token }}
         registry: ghcr.io
 
     - name: Set up Docker Buildx
@@ -71,7 +71,7 @@ runs:
         build-args: |
           ${{ inputs.docker-build-args }}
           COMMIT_SHA=${{ steps.var.outputs.checked-out-sha }}
-        secrets: github_token=${{ input.github-token }}
+        secrets: github_token=${{ inputs.github-token }}
         tags: |
           ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.docker-tag-prefix }}${{ steps.var.outputs.branch }}
           ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.docker-tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}
