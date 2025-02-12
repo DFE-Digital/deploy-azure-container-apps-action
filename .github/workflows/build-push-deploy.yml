@@ -84,7 +84,7 @@ jobs:
 
       - shell: bash
         run: |
-          echo '## Deploying to `${{ inputs.environment }}` 🚢' >> $GITHUB_SUMMARY
+          echo '## Deploying to `${{ inputs.environment }}` 🚢' >> $GITHUB_STEP_SUMMARY
 
       - uses: ./.github/actions/build
         with:

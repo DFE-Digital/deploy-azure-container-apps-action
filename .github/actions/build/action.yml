@@ -82,7 +82,7 @@ runs:
     - name: Set summary
       shell: bash
       run: |
-        echo "### Built 🛠️" >> $GITHUB_SUMMARY
-        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}${{ steps.var.outputs.branch }}" >> $GITHUB_SUMMARY
-        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}" >> $GITHUB_SUMMARY
-        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}latest" >> $GITHUB_SUMMARY
+        echo "### Built 🛠️" >> $GITHUB_STEP_SUMMARY
+        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}${{ steps.var.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
+        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}latest" >> $GITHUB_STEP_SUMMARY

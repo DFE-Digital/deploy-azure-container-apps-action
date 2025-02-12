@@ -78,7 +78,7 @@ runs:
             ${{ inputs.tag-prefix }}latest
           )
           az config set extension.use_dynamic_install=yes_without_prompt
-          echo "### Imported 📥" >> $GITHUB_SUMMARY
+          echo "### Imported 📥" >> $GITHUB_STEP_SUMMARY
           for tag in "${TAGS[@]}"
           do
             az acr import \
@@ -88,5 +88,5 @@ runs:
               --username ${{ github.actor }} \
               --password ${{ inputs.github-token }} \
               --force
-            echo "- ${{ inputs.azure-acr-name }}.azurecr.io/${{ steps.var.outputs.github_repository_lc }}:$tag" >> $GITHUB_SUMMARY
+            echo "- ${{ inputs.azure-acr-name }}.azurecr.io/${{ steps.var.outputs.github_repository_lc }}:$tag" >> $GITHUB_STEP_SUMMARY
           done

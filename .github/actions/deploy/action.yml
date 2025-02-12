@@ -86,10 +86,10 @@ runs:
           az config set extension.use_dynamic_install=yes_without_prompt
 
           print_state() {
-            echo "$RESULT" >> $GITHUB_SUMMARY
-            echo '|State|Health|Status|' >> $GITHUB_SUMMARY
-            echo '|--|--|--|' >> $GITHUB_SUMMARY
-            echo "|\`$STATE\`|\`$HEALTH\`|\`$STATUS\`|" >> $GITHUB_SUMMARY
+            echo "$RESULT" >> $GITHUB_STEP_SUMMARY
+            echo '|State|Health|Status|' >> $GITHUB_STEP_SUMMARY
+            echo '|--|--|--|' >> $GITHUB_STEP_SUMMARY
+            echo "|\`$STATE\`|\`$HEALTH\`|\`$STATUS\`|" >> $GITHUB_STEP_SUMMARY
           }
 
           ## This functionality will only work if you have the 'Read' RBAC
@@ -99,11 +99,11 @@ runs:
           #    --resource-group "${{ inputs.azure-aca-resource-group }}" \
           #    --revision "$NEW_REVISION" --name "${{ inputs.azure-aca-name }}")
           #
-          #  echo '### Container Logs' >> $GITHUB_SUMMARY
-          #  echo 'The last 20 log lines are displayed below' >> $GITHUB_SUMMARY
-          #  echo '```' >> $GITHUB_SUMMARY
-          #  echo "$RECENT_LOGS" >> $GITHUB_SUMMARY
-          #  echo '```' >> $GITHUB_SUMMARY
+          #  echo '### Container Logs' >> $GITHUB_STEP_SUMMARY
+          #  echo 'The last 20 log lines are displayed below' >> $GITHUB_STEP_SUMMARY
+          #  echo '```' >> $GITHUB_STEP_SUMMARY
+          #  echo "$RECENT_LOGS" >> $GITHUB_STEP_SUMMARY
+          #  echo '```' >> $GITHUB_STEP_SUMMARY
           #}
 
           UPDATE=$(az containerapp update \
@@ -117,10 +117,10 @@ runs:
 
           echo "[i] Deploying $NEW_REVISION with image tag $NEW_TAG..."
 
-          echo '### Deployment Details' >> $GITHUB_SUMMARY
-          echo '|Image|Tag|Revision|' >> $GITHUB_SUMMARY
-          echo '|--|--|--|' >> $GITHUB_SUMMARY
-          echo "|\`${{ inputs.image-name }}\`|\`${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}\`|\`$NEW_REVISION\`|" >> $GITHUB_SUMMARY
+          echo '### Deployment Details' >> $GITHUB_STEP_SUMMARY
+          echo '|Image|Tag|Revision|' >> $GITHUB_STEP_SUMMARY
+          echo '|--|--|--|' >> $GITHUB_STEP_SUMMARY
+          echo "|\`${{ inputs.image-name }}\`|\`${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}\`|\`$NEW_REVISION\`|" >> $GITHUB_STEP_SUMMARY
 
           HEALTH=""
           STATE=""
@@ -149,7 +149,7 @@ runs:
             ]]
             then
               RESULT="Container App replica failed to provision"
-              echo '### Result - Failed ❌' >> $GITHUB_SUMMARY
+              echo '### Result - Failed ❌' >> $GITHUB_STEP_SUMMARY
               print_state
               #print_logs
               echo "::error ::$RESULT"
@@ -160,7 +160,7 @@ runs:
             if [[ $SECONDS -gt $TIMEOUT ]]
             then
               RESULT="Container App failed to reach a steady state after 60 seconds"
-              echo '### Result - Failed ❌' >> $GITHUB_SUMMARY
+              echo '### Result - Failed ❌' >> $GITHUB_STEP_SUMMARY
               print_state
               #print_logs
               echo "::error ::$RESULT"
@@ -172,7 +172,7 @@ runs:
 
           # Final output to evidence the state
           RESULT="Deployment completed successfully!"
-          echo '### Result - Success ✅' >> $GITHUB_SUMMARY
+          echo '### Result - Success ✅' >> $GITHUB_STEP_SUMMARY
           print_state
           #print_logs
           echo "$RESULT"
@@ -191,7 +191,7 @@ runs:
           category="Deployment"
           data='{ "Id": "'$UUID'", "AnnotationName": "'$sha'", "EventTime":"'$eventTime'", "Category":"'$category'", "Properties":"{ \"ReleaseName\":\"'$sha'\", \"TriggeredBy\": \"'$triggerBy'\" }"}'
           az rest --method put --uri "$APPINSIGHTS_ID/Annotations?api-version=2015-05-01" --body "$data" -o none
-          echo '### Annotation 📝' >> $GITHUB_SUMMARY
-          echo '|Id|Event Time|Category|Author|' >> $GITHUB_SUMMARY
-          echo '|--|--|--|--|' >> $GITHUB_SUMMARY
-          echo "\`$UUID\`|$eventTime|$category|$triggerBy|" >> $GITHUB_SUMMARY
+          echo '### Annotation 📝' >> $GITHUB_STEP_SUMMARY
+          echo '|Id|Event Time|Category|Author|' >> $GITHUB_STEP_SUMMARY
+          echo '|--|--|--|--|' >> $GITHUB_STEP_SUMMARY
+          echo "\`$UUID\`|$eventTime|$category|$triggerBy|" >> $GITHUB_STEP_SUMMARY
