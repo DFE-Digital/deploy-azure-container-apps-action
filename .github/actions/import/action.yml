@@ -82,7 +82,7 @@ runs:
             az acr import \
               --name ${{ inputs.azure-acr-name }} \
               --source "ghcr.io/${{ steps.var.outputs.github_repository_lc }}:$tag" \
-              --image "${{ inputs.docker-image-name }}:$tag" \
+              --image "${{ inputs.image-name }}:$tag" \
               --username ${{ github.actor }} \
               --password ${{ inputs.github-token }} \
               --force
