@@ -5,7 +5,7 @@ inputs:
   azure-cli-version:
     description: 'Version of Azure CLI to use'
     required: false
-    default: 2.68.0
+    default: 2.69.0
   azure-tenant-id:
     description: 'Azure Tenant ID'
     required: false
