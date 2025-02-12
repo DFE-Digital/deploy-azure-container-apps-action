@@ -65,17 +65,17 @@ runs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v6
       with:
-        context: ${{ inputs.docker-build-context }}
-        file: ${{ inputs.docker-build-file-name }}
-        target: ${{ inputs.docker-build-target }}
+        context: ${{ inputs.build-context }}
+        file: ${{ inputs.build-file-name }}
+        target: ${{ inputs.build-target }}
         build-args: |
-          ${{ inputs.docker-build-args }}
+          ${{ inputs.build-args }}
           COMMIT_SHA=${{ steps.var.outputs.checked-out-sha }}
         secrets: github_token=${{ inputs.github-token }}
         tags: |
-          ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.docker-tag-prefix }}${{ steps.var.outputs.branch }}
-          ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.docker-tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}
-          ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.docker-tag-prefix }}latest
+          ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}${{ steps.var.outputs.branch }}
+          ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}
+          ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}latest
         push: true
         cache-from: type=gha
 
@@ -83,6 +83,6 @@ runs:
       shell: bash
       run: |
         echo "### Built 🛠️" >> $GITHUB_SUMMARY
-        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.docker-tag-prefix }}${{ steps.var.outputs.branch }}" >> $GITHUB_SUMMARY
-        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.docker-tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}" >> $GITHUB_SUMMARY
-        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.docker-tag-prefix }}latest" >> $GITHUB_SUMMARY
+        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}${{ steps.var.outputs.branch }}" >> $GITHUB_SUMMARY
+        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}" >> $GITHUB_SUMMARY
+        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}latest" >> $GITHUB_SUMMARY
