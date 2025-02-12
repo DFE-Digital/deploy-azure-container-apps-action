@@ -81,7 +81,7 @@ jobs:
         run: |
           echo '## Deploying to `${{ inputs.environment }}` 🚢' >> $GITHUB_SUMMARY
 
-      - uses: ./.github/actions/build
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/build
         with:
           build-file-name: ${{ inputs.docker-build-file-name }}
           build-context: ${{ inputs.docker-build-context }}
@@ -91,7 +91,7 @@ jobs:
           tag-prefix: ${{ inputs.docker-tag-prefix }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: ./.github/actions/import
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/import
         with:
           azure-cli-version: ${{ env.AZURE_CLI_VERSION }}
           azure-tenant-id: ${{ secrets.azure-tenant-id }}
@@ -107,7 +107,7 @@ jobs:
           AZURE_SUBSCRIPTION: ${{ secrets.azure-subscription-id || '' }}
           AZURE_ACR_CLIENT_ID: ${{ secrets.azure-acr-client-id || '' }}
 
-      - uses: ./.github/actions/deploy
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/deploy
         if: ${{ inputs.import-without-deploy == false }}
         with:
           azure-cli-version: ${{ env.AZURE_CLI_VERSION }}
