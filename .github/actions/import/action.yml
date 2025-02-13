@@ -86,5 +86,5 @@ runs:
               --username ${{ github.actor }} \
               --password ${{ inputs.github-token }} \
               --force
-            echo "- ${{ inputs.azure-acr-name }}.azurecr.io/${{ steps.var.outputs.github_repository_lc }}:$tag" >> $GITHUB_STEP_SUMMARY
+            echo "- ${{ inputs.azure-acr-name }}.azurecr.io/${{ inputs.image-name }}:$tag" >> $GITHUB_STEP_SUMMARY
           done
