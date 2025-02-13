@@ -82,9 +82,9 @@ Or run certain steps in a matrix when dealing with things like worker or init co
 
   deploy:
     name: Deploy
-    needs: [ set-env, build-import ]
+    needs: [ build-import ]
     runs-on: ubuntu-24.04
-    environment: ${{ needs.set-env.outputs.environment }}
+    environment: development
     permissions:
       id-token: write
     steps:
