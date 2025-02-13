@@ -4,53 +4,98 @@ This GitHub Workflow will build a Dockerfile, push it to an Azure Container Regi
 
 ## Usage
 
-* OIDC authorisation (preferred)
+Combine all composite actions together for a simple deployment workflow
 
 ```yml
-permissions:
-  id-token: write # Require write permission to Fetch an OIDC token.
-  contents: read  # Require read permission to read the contents of the repository
-  packages: write # Require write permission to push the image to GHCR
+  build-import-deploy:
+    name: Build, Import, Deploy
+    permissions:
+      id-token: write
+      packages: write
+    runs-on: ubuntu-24.04
+    environment: development
+    steps:
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/build@v5.0.0
+        with:
+          image-name: my-image
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-jobs:
-  build-push-deploy:
-    uses: DFE-Digital/deploy-azure-container-apps-action/.github/workflows/build-push-deploy.yml@v4.1.0
-    with:
-      docker-image-name: 'my-app'
-      docker-build-file-name: 'Dockerfile'
-      docker-build-context: '.'
-      docker-build-args: 'ENV=development'
-      environment: development
-      annotate-release: true # defaults to false
-    secrets:
-      azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-      azure-subscription-id: ${{ secrets.AZURE_SUBSRIPTION_ID }}
-      azure-acr-client-id: ${{ secrets.AZURE_ACR_CLIENTID }}
-      azure-acr-name: ${{ secrets.AZURE_ACR_NAME }}
-      azure-aca-client-id: ${{ secrets.AZURE_ACA_CLIENTID }}
-      azure-aca-name: ${{ secrets.AZURE_ACA_NAME }}
-      azure-aca-resource-group: ${{ secrets.AZURE_ACA_RESOURCE_GROUP }}
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/import@v5.0.0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-acr-client-id: ${{ secrets.ACR_CLIENT_ID }} # uses OIDC auth
+          azure-acr-name: ${{ secrets.ACR_NAME }}
+          image-name: my-image
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/deploy@v5.0.0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-aca-client-id: ${{ secrets.ACA_CLIENT_ID }}
+          azure-aca-name: ${{ secrets.ACA_CONTAINERAPP_NAME }}
+          azure-aca-resource-group: ${{ secrets.ACA_RESOURCE_GROUP }}
+          azure-acr-name: ${{ secrets.ACR_NAME }}
+          annotate-release: true
+          image-name: my-image
 ```
 
-* Credential based authorisation
+Or run certain steps in a matrix when dealing with things like worker or init containers
 
 ```yml
-jobs:
-  build-push-deploy:
-    uses: DFE-Digital/deploy-azure-container-apps-action/.github/workflows/build-push-deploy.yml@v4.1.0
-    with:
-      docker-image-name: 'my-app'
-      docker-build-file-name: 'Dockerfile'
-      docker-build-context: '.'
-      docker-build-args: 'ENV=development'
-      environment: development
-      annotate-release: true # defaults to false
-    secrets:
-      azure-acr-credentials: ${{ secrets.AZURE_ACR_CREDENTIALS }}
-      azure-acr-client-id: ${{ secrets.AZURE_ACR_CLIENTID }}
-      azure-acr-name: ${{ secrets.AZURE_ACR_NAME }}
-      azure-aca-credentials: ${{ secrets.AZURE_ACA_CREDENTIALS }}
-      azure-aca-client-id: ${{ secrets.AZURE_ACA_CLIENTID }}
-      azure-aca-name: ${{ secrets.AZURE_ACA_NAME }}
-      azure-aca-resource-group: ${{ secrets.AZURE_ACA_RESOURCE_GROUP }}
+  build-import:
+    name: Build & Import
+    runs-on: ubuntu-24.04
+    environment: development
+    permissions:
+      packages: write
+      id-token: write
+    strategy:
+      matrix:
+        stage: [
+          "final",
+          "initcontainer"
+        ]
+        include:
+          - stage: "final"
+            tag-prefix: ""
+          - stage: "initcontainer"
+            tag-prefix: "init-"
+    steps:
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/build@v5.0.0
+        with:
+          build-target: ${{ matrix.stage }}
+          image-name: my-cool-app
+          tag-prefix: ${{ matrix.tag-prefix }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/import@v5.0.0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-acr-client-id: ${{ secrets.ACR_CLIENT_ID }}
+          azure-acr-name: ${{ secrets.ACR_NAME }}
+          image-name: my-cool-app
+          tag-prefix: ${{ matrix.tag-prefix }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Deploy
+    needs: [ set-env, build-import ]
+    runs-on: ubuntu-24.04
+    environment: ${{ needs.set-env.outputs.environment }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/deploy@v5.0.0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          azure-aca-client-id: ${{ secrets.ACA_CLIENT_ID }}
+          azure-aca-name: ${{ secrets.ACA_CONTAINERAPP_NAME }}
+          azure-aca-resource-group: ${{ secrets.ACA_RESOURCE_GROUP }}
+          azure-acr-name: ${{ secrets.ACR_NAME }}
+          annotate-release: true
+          image-name: my-cool-app
 ```
