@@ -164,7 +164,6 @@ runs:
             ]]
             then
               RESULT="Container App replica failed to provision"
-              echo "❌ $RESULT" >> $GITHUB_STEP_SUMMARY
               print_state
               #print_logs
               echo "::error ::$RESULT"
@@ -175,7 +174,6 @@ runs:
             if [[ $SECONDS -gt $TIMEOUT ]]
             then
               RESULT="Container App failed to reach a steady state after 60 seconds"
-              echo "❌ $RESULT" >> $GITHUB_STEP_SUMMARY
               print_state
               #print_logs
               echo "::error ::$RESULT"
@@ -187,7 +185,6 @@ runs:
 
           # Final output to evidence the state
           RESULT="Deployment completed successfully!"
-          echo "🚀 $RESULT" >> $GITHUB_STEP_SUMMARY
           print_state
           #print_logs
           echo "$RESULT"
