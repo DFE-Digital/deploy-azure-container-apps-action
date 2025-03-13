@@ -37,7 +37,7 @@ Combine all composite actions together for a simple deployment workflow
           azure-aca-name: ${{ secrets.ACA_CONTAINERAPP_NAME }}
           azure-aca-resource-group: ${{ secrets.ACA_RESOURCE_GROUP }}
           azure-acr-name: ${{ secrets.ACR_NAME }}
-          annotate-release: true
+          annotate-release: 'yes'
           image-name: my-image
 ```
 
@@ -96,6 +96,6 @@ Or run certain steps in a matrix when dealing with things like worker or init co
           azure-aca-name: ${{ secrets.ACA_CONTAINERAPP_NAME }}
           azure-aca-resource-group: ${{ secrets.ACA_RESOURCE_GROUP }}
           azure-acr-name: ${{ secrets.ACR_NAME }}
-          annotate-release: true
+          annotate-release: 'yes'
           image-name: my-cool-app
 ```
