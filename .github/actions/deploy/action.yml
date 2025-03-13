@@ -79,6 +79,9 @@ runs:
       with:
         azcliversion: ${{ inputs.azure-cli-version }}
         inlineScript: |
+          echo '### Deployment Details' >> $GITHUB_STEP_SUMMARY
+
+          set -euo pipefail
           az config set extension.use_dynamic_install=yes_without_prompt
 
           print_state() {
@@ -108,12 +111,28 @@ runs:
             --image "${{ inputs.azure-acr-name }}.azurecr.io/${{ inputs.image-name }}:${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}" \
             --only-show-errors)
 
-          NEW_REVISION=$(echo "$UPDATE" | jq -r '.properties.latestRevisionName')
-          NEW_TAG=$(echo "$UPDATE" | jq -r '.properties.template.containers[0].image')
+          if [[ $? -ne 0 ]]; then
+            echo "❌ Failed to update container app" >> $GITHUB_STEP_SUMMARY
+            echo "::error ::Failed to update container app"
+            exit 1
+          fi
+
+          NEW_REVISION=$(echo "$UPDATE" | jq -r -e '.properties.latestRevisionName')
+          if [[ $? -ne 0 ]]; then
+            echo "❌ Failed to parse revision name" >> $GITHUB_STEP_SUMMARY
+            echo "::error ::Failed to parse revision name"
+            exit 1
+          fi
+
+          NEW_TAG=$(echo "$UPDATE" | jq -r -e '.properties.template.containers[0].image')
+          if [[ $? -ne 0 ]]; then
+            echo "❌ Failed to parse image tag" >> $GITHUB_STEP_SUMMARY
+            echo "::error ::Failed to parse image tag"
+            exit 1
+          fi
 
           echo "[i] Deploying $NEW_REVISION with image tag $NEW_TAG..."
 
-          echo '### Deployment Details' >> $GITHUB_STEP_SUMMARY
           echo '|Image|Tag|Revision|' >> $GITHUB_STEP_SUMMARY
           echo '|--|--|--|' >> $GITHUB_STEP_SUMMARY
           echo "|\`${{ inputs.image-name }}\`|\`${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}\`|\`$NEW_REVISION\`|" >> $GITHUB_STEP_SUMMARY
@@ -145,7 +164,7 @@ runs:
             ]]
             then
               RESULT="Container App replica failed to provision"
-              echo '### Result - Failed ❌' >> $GITHUB_STEP_SUMMARY
+              echo "❌ $RESULT" >> $GITHUB_STEP_SUMMARY
               print_state
               #print_logs
               echo "::error ::$RESULT"
@@ -156,7 +175,7 @@ runs:
             if [[ $SECONDS -gt $TIMEOUT ]]
             then
               RESULT="Container App failed to reach a steady state after 60 seconds"
-              echo '### Result - Failed ❌' >> $GITHUB_STEP_SUMMARY
+              echo "❌ $RESULT" >> $GITHUB_STEP_SUMMARY
               print_state
               #print_logs
               echo "::error ::$RESULT"
@@ -168,7 +187,7 @@ runs:
 
           # Final output to evidence the state
           RESULT="Deployment completed successfully!"
-          echo '### Result - Success ✅' >> $GITHUB_STEP_SUMMARY
+          echo '✅ Success' >> $GITHUB_STEP_SUMMARY
           print_state
           #print_logs
           echo "$RESULT"
@@ -179,15 +198,37 @@ runs:
       with:
         azcliversion: ${{ inputs.azure-cli-version }}
         inlineScript: |
+          echo '### Annotation 📝' >> $GITHUB_STEP_SUMMARY
+
           APPINSIGHTS_ID=$(az resource show -g ${{ inputs.azure-aca-resource-group }} -n ${{ steps.var.outputs.app-insights-name }} --resource-type "microsoft.insights/components" --query id -o tsv)
+          if [[ -z "$APPINSIGHTS_ID" ]]; then
+            echo '⚠️ App Insights resource `${{ steps.var.outputs.app-insights-name }}` not found' >> $GITHUB_STEP_SUMMARY
+            echo "::warning ::App Insights resource not found"
+            exit 0
+          fi
+
           UUID=$(cat /proc/sys/kernel/random/uuid)
           sha=${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}
           triggerBy=${{ github.actor }}
           eventTime=`date '+%Y-%m-%dT%H:%M:%S' -u`
           category="Deployment"
-          data='{ "Id": "'$UUID'", "AnnotationName": "'$sha'", "EventTime":"'$eventTime'", "Category":"'$category'", "Properties":"{ \"ReleaseName\":\"'$sha'\", \"TriggeredBy\": \"'$triggerBy'\" }"}'
+
+          data=$(jq -n \
+            --arg id "$UUID" \
+            --arg annotationName "$sha" \
+            --arg eventTime "$eventTime" \
+            --arg category "$category" \
+            --arg releaseName "$sha" \
+            --arg triggeredBy "$triggerBy" \
+            '{Id: $id, AnnotationName: $annotationName, EventTime: $eventTime, Category: $category, Properties: {ReleaseName: $releaseName, TriggeredBy: $triggeredBy}}')
+
           az rest --method put --uri "$APPINSIGHTS_ID/Annotations?api-version=2015-05-01" --body "$data" -o none
-          echo '### Annotation 📝' >> $GITHUB_STEP_SUMMARY
-          echo '|Id|Event Time|Category|Author|' >> $GITHUB_STEP_SUMMARY
-          echo '|--|--|--|--|' >> $GITHUB_STEP_SUMMARY
-          echo "\`$UUID\`|$eventTime|$category|$triggerBy|" >> $GITHUB_STEP_SUMMARY
+          if [[ $? -ne 0 ]]; then
+            echo '❌ Failed to create App Insights annotation' >> $GITHUB_STEP_SUMMARY
+            echo "::error ::Failed to create App Insights annotation"
+            exit 1
+          else
+            echo '|Id|Event Time|Category|Author|' >> $GITHUB_STEP_SUMMARY
+            echo '|--|--|--|--|' >> $GITHUB_STEP_SUMMARY
+            echo "\`$UUID\`|$eventTime|$category|$triggerBy|" >> $GITHUB_STEP_SUMMARY
+          fi
