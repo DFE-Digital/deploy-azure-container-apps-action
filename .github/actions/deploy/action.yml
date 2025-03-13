@@ -29,9 +29,8 @@ inputs:
     required: true
   annotate-release:
     description: 'Annotate the release in App Insights?'
-    default: false
+    default: 'no'
     required: false
-    type: boolean
   app-insights-name:
     description: 'Name of App Insights resource'
     required: false
@@ -175,7 +174,7 @@ runs:
           echo "$RESULT"
 
     - name: Create release annotation
-      if: inputs.annotate-release
+      if: ${{ inputs.annotate-release == 'yes' }}
       uses: azure/CLI@v2
       with:
         azcliversion: ${{ inputs.azure-cli-version }}
