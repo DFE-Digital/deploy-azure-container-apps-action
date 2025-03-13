@@ -213,14 +213,7 @@ runs:
           eventTime=`date '+%Y-%m-%dT%H:%M:%S' -u`
           category="Deployment"
 
-          data=$(jq -n \
-            --arg id "$UUID" \
-            --arg annotationName "$sha" \
-            --arg eventTime "$eventTime" \
-            --arg category "$category" \
-            --arg releaseName "$sha" \
-            --arg triggeredBy "$triggerBy" \
-            '{Id: $id, AnnotationName: $annotationName, EventTime: $eventTime, Category: $category, Properties: {ReleaseName: $releaseName, TriggeredBy: $triggeredBy}}')
+          data='{ "Id": "'$UUID'", "AnnotationName": "'$sha'", "EventTime":"'$eventTime'", "Category":"'$category'", "Properties":"{ \"ReleaseName\":\"'$sha'\", \"TriggeredBy\": \"'$triggerBy'\" }"}'
 
           az rest --method put --uri "$APPINSIGHTS_ID/Annotations?api-version=2015-05-01" --body "$data" -o none
           if [[ $? -ne 0 ]]; then
