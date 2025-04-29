@@ -56,6 +56,22 @@ runs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: Generate metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          name=ghcr.io/${{ steps.var.outputs.github-repository-lc }}
+        labels: |
+          org.opencontainers.image.vendor=Department for Education
+          org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss.SSS[Z]'}}
+        flavor: |
+          latest=true
+          prefix=${{ inputs.tag-prefix }}
+        tags: |
+          type=sha,prefix=${{ inputs.tag-prefix }}sha-,format=long
+          type=ref,event=branch
+
     - name: Build and push Docker image
       id: build
       uses: docker/build-push-action@v6
@@ -67,10 +83,9 @@ runs:
           ${{ inputs.build-args }}
           COMMIT_SHA=${{ steps.var.outputs.checked-out-sha }}
         secrets: github_token=${{ inputs.github-token }}
-        tags: |
-          ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}${{ steps.var.outputs.branch }}
-          ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}
-          ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}latest
+        labels: ${{ steps.meta.outputs.labels }}
+        tags: ${{ steps.meta.outputs.tags }}
+        annotations: ${{ steps.meta.outputs.annotations }}
         push: true
         cache-from: type=gha
 
@@ -82,11 +97,3 @@ runs:
         subject-digest: ${{ steps.build.outputs.digest }}
         push-to-registry: true
         github-token: ${{ inputs.github-token }}
-
-    - name: Set summary
-      shell: bash
-      run: |
-        echo "### Built 🛠️" >> $GITHUB_STEP_SUMMARY
-        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}${{ steps.var.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
-        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}sha-${{ steps.var.outputs.checked-out-sha }}" >> $GITHUB_STEP_SUMMARY
-        echo "- ghcr.io/${{ steps.var.outputs.github-repository-lc }}:${{ inputs.tag-prefix }}latest" >> $GITHUB_STEP_SUMMARY
