@@ -97,11 +97,3 @@ runs:
         subject-digest: ${{ steps.build.outputs.digest }}
         push-to-registry: true
         github-token: ${{ inputs.github-token }}
-
-    - name: Set summary
-      shell: bash
-      run: |
-        echo "### Built 🛠️" >> $GITHUB_STEP_SUMMARY
-        echo "- **Digest:** ${{ steps.build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Tags:** ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Labels:** ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
