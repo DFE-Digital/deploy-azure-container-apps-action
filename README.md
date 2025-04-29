@@ -12,15 +12,16 @@ Combine all composite actions together for a simple deployment workflow
     permissions:
       id-token: write
       packages: write
+      attestations: write
     runs-on: ubuntu-24.04
     environment: development
     steps:
-      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/build@v5.1.0
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/build@v5.2.0
         with:
           image-name: my-image
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/import@v5.1.0
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/import@v5.2.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -29,7 +30,7 @@ Combine all composite actions together for a simple deployment workflow
           image-name: my-image
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/deploy@v5.1.0
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/deploy@v5.2.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -51,6 +52,7 @@ Or run certain steps in a matrix when dealing with things like worker or init co
     permissions:
       packages: write
       id-token: write
+      attestations: write
     strategy:
       matrix:
         stage: [
@@ -63,14 +65,14 @@ Or run certain steps in a matrix when dealing with things like worker or init co
           - stage: "initcontainer"
             tag-prefix: "init-"
     steps:
-      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/build@v5.1.0
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/build@v5.2.0
         with:
           build-target: ${{ matrix.stage }}
           image-name: my-cool-app
           tag-prefix: ${{ matrix.tag-prefix }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/import@v5.1.0
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/import@v5.2.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -88,7 +90,7 @@ Or run certain steps in a matrix when dealing with things like worker or init co
     permissions:
       id-token: write
     steps:
-      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/deploy@v5.1.0
+      - uses: DFE-Digital/deploy-azure-container-apps-action/.github/actions/deploy@v5.2.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
