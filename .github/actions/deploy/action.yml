@@ -140,7 +140,7 @@ runs:
           HEALTH=""
           STATE=""
 
-          TIMEOUT=$((SECONDS+60))
+          TIMEOUT=$((SECONDS+180))
 
           until [[
             $HEALTH == 'Healthy'
