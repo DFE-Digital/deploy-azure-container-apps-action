@@ -79,7 +79,7 @@ runs:
           type=ref,event=branch
 
     - name: Import to ACR
-      uses: azure/cli@v2
+      uses: azure/cli@v3
       with:
         azcliversion: ${{ inputs.azure-cli-version }}
         inlineScript: |
