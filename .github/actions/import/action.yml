@@ -67,7 +67,7 @@ runs:
 
     - name: Generate metadata
       id: meta
-      uses: docker/metadata-action@v5
+      uses: docker/metadata-action@v6
       with:
         images: |
           name=ghcr.io/${{ steps.var.outputs.github-repository-lc }}
